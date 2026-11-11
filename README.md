@@ -47,7 +47,7 @@ A escolha da stack segue o que as vagas DevOps remotas pedem: veja [ADR 0000](do
 
 ## Roadmap
 
-Cada fase é um [milestone](https://github.com/devops-navarro/vitrine-devops/milestones) com suas issues.
+Cada fase vira um [milestone](https://github.com/devops-navarro/vitrine-devops/milestones) com suas issues quando começa. As pastas do repositório nascem junto com o que é construído.
 
 - [ ] **Fase 1** · APIs FastAPI + PostgreSQL (`services/`, `scripts/`)
 - [ ] **Fase 2** · Linux, redes e automação com Ansible (`lab/`, `scripts/`)
@@ -57,25 +57,12 @@ Cada fase é um [milestone](https://github.com/devops-navarro/vitrine-devops/mil
 - [ ] **Fase 6** · Observabilidade e SRE (`observability/`, `loadtest/`)
 - [ ] **Fase 7** · Segurança e acabamento (`docs/`)
 
-## Estrutura
-
-```
-services/        microsserviços (clientes, catalogo, pedidos)
-scripts/         automação em Python e Bash
-lab/             VM Linux + Ansible (Fase 2)
-infra/           Terraform: bootstrap do state, módulos e ambientes
-deploy/          chart Helm e aplicações do Argo CD
-observability/   dashboards, alertas e values da stack de monitoração
-loadtest/        testes de carga com k6
-docs/            ADRs, runbooks, post-mortems, evidências e diário
-```
-
 ## Como trabalho neste repositório
 
 - **Branch por tarefa e merge por PR.** A `main` é protegida e só recebe código com o CI verde.
 - **[Conventional Commits](https://www.conventionalcommits.org/pt-br/):** `feat:`, `fix:`, `docs:`, `ci:`, `infra:`, `test:`, `chore:`.
 - **Decisões registradas** em [`docs/adr/`](docs/adr/) e **diário de bordo** em [`docs/diario.md`](docs/diario.md).
-- **Fim de fase** = tag de versão (`v0.N.0`) + evidências em `docs/evidencias/fase-N/`.
+- **Fim de fase** = tag de versão (`v0.N.0`) + evidências no PR e em `docs/evidencias/`.
 
 ## Regras
 

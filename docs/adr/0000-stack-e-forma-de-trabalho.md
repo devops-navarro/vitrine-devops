@@ -1,13 +1,12 @@
 # ADR 0000 · Stack do projeto e forma de trabalho
 
 - **Status:** aceita
-- **Data:** 2026-11-11
 
 ## Contexto
 
 Este repositório é um portfólio de estudo para vagas DevOps remotas. A stack precisa refletir o que o mercado pede, não preferência pessoal.
 
-Analisei 570 vagas DevOps remotas publicadas no Brasil entre 26/09 e 10/11/2026. Os itens mais citados foram:
+Analisei 570 vagas DevOps remotas publicadas no Brasil. Os itens mais citados foram:
 
 | Item | Vagas |
 | --- | --- |
