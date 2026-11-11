@@ -1,0 +1,30 @@
+# Segredos e credenciais
+.env
+*.env
+*.pem
+*.ppk
+*.key
+kubeconfig*
+credentials*
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!example.tfvars
+crash.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ferramentas locais
+.vagrant/
+.DS_Store
+.idea/
+.vscode/
