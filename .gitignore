@@ -31,3 +31,6 @@ htmlcov/
 
 # Laboratório: inventário e known_hosts gerados para a VM local
 lab/.gerado/
+
+# Lock só nos ambientes (envs/): num módulo, quem fixa a versão é quem o usa
+infra/modules/**/.terraform.lock.hcl
