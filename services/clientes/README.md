@@ -13,6 +13,18 @@ make clientes-run       # API em http://localhost:8001/docs
 make clientes-test      # testes
 ```
 
+## Autenticação
+
+As rotas de negócio exigem o header `X-API-Key`. Sem ele, ou com chave errada, a resposta é 401. `/health` e a documentação (`/docs`) ficam abertos.
+
+```bash
+curl -H "X-API-Key: $CHAVE" localhost:8001/clientes
+```
+
+No `/docs`, o botão **Authorize** guarda a chave para todas as chamadas.
+
+As chaves vêm de `API_KEYS`, separadas por vírgula, cada uma com 32+ caracteres (`openssl rand -hex 32`). Aceitar mais de uma permite trocar a chave sem parar ninguém: adiciona a nova, os consumidores migram, remove a antiga. O serviço não sobe sem chave ou com chave curta.
+
 ## Endpoints
 
 | Método | Rota | Sucesso | Erros |
@@ -48,6 +60,7 @@ app/
   config.py   configuração por variável de ambiente (pydantic-settings)
   db.py       engine, sessão e schema do serviço
   deps.py     dependências compartilhadas pelas rotas
+  seguranca.py  API key
   validacao.py  CPF e CEP
   models.py   tabelas
   schemas.py  formato de entrada e saída da API (Pydantic)

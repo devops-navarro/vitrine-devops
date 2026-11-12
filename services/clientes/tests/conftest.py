@@ -12,6 +12,10 @@ from sqlalchemy.orm import Session
 # Os testes usam um banco separado, para nunca apagar dados de desenvolvimento.
 # Precisa vir antes de importar o app, porque o engine é criado no import.
 os.environ["POSTGRES_DB"] = f"{os.environ.get('POSTGRES_DB', 'vitrine')}_test"
+# Duas chaves, como no meio de um rodízio. Nunca as do .env.
+CHAVE = "chave-de-teste-" + "a" * 32
+CHAVE_ANTIGA = "chave-antiga-de-teste-" + "b" * 32
+os.environ["API_KEYS"] = f"{CHAVE}, {CHAVE_ANTIGA}"
 
 from app.config import get_settings  # noqa: E402
 from app.db import SessionLocal, engine, get_session  # noqa: E402
@@ -60,8 +64,16 @@ def session() -> Iterator[Session]:
 
 
 @pytest.fixture
-def client(session: Session) -> Iterator[TestClient]:
+def anonimo(session: Session) -> Iterator[TestClient]:
+    """Cliente HTTP sem API key."""
     app.dependency_overrides[get_session] = lambda: session
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(anonimo: TestClient) -> TestClient:
+    """Cliente HTTP autenticado, usado pela maioria dos testes."""
+    anonimo.headers["X-API-Key"] = CHAVE
+    return anonimo
