@@ -79,3 +79,5 @@
 - name: Liga o firewall
   community.general.ufw:
     state: enabled
+
+- ansible.builtin.command: echo sem nome
