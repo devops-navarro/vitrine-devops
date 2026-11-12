@@ -1,0 +1,13 @@
+---
+# Os dois escutam o mesmo aviso e rodam nesta ordem: se a configuração tiver
+# erro, o nginx -t falha, o reload não acontece e a versão antiga segue no ar.
+- name: Valida a configuração do nginx
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  listen: Nginx mudou
+
+- name: Recarrega o nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: reloaded
+  listen: Nginx mudou
