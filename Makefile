@@ -8,7 +8,8 @@ DB_IMAGE      := postgres:17-alpine
 .PHONY: help db-up db-down db-reset db-psql db-bootstrap clientes-migrate clientes-run clientes-test \
 	catalogo-migrate catalogo-run catalogo-test pedidos-migrate pedidos-run pedidos-test \
 	test migrations-check clientes-migrations-check catalogo-migrations-check \
-	pedidos-migrations-check up down logs ps smoke seed
+	pedidos-migrations-check up down logs ps smoke seed \
+	lab-deps lab-vm lab-ping lab-ssh lab-destroy
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -115,3 +116,33 @@ catalogo-migrations-check: ## Confere as migrations do catalogo
 
 pedidos-migrations-check: ## Confere as migrations do pedidos
 	cd services/pedidos && $(MIGRATIONS_CHECK)
+
+# --- laboratório Linux (Fase 2): VM no Lima configurada pelo Ansible ---
+
+LAB_VM    := vitrine-lab
+LAB_DISCO := vitrine-lab-dados
+
+lab-deps: ## Instala as coleções do Ansible fixadas em lab/requirements.yml
+	cd lab && ansible-galaxy collection install -r requirements.yml -p .gerado/colecoes
+
+lab-vm: ## Cria e liga a VM do laboratório (Ubuntu, Lima) e gera o inventário
+	@limactl disk list --json 2>/dev/null | grep -q '"$(LAB_DISCO)"' \
+		|| limactl disk create $(LAB_DISCO) --size 2GiB --format raw
+	@estado="$$(limactl list --format '{{.Status}}' $(LAB_VM) 2>/dev/null)"; \
+	case "$$estado" in \
+		Running) echo "VM $(LAB_VM) já está ligada" ;; \
+		Stopped) limactl start --tty=false $(LAB_VM) ;; \
+		*) limactl start --name=$(LAB_VM) --tty=false lab/vm.yaml ;; \
+	esac
+	lab/inventario.sh
+
+lab-ping: ## Confere se o Ansible alcança a VM
+	cd lab && ansible all -m ping
+
+lab-ssh: ## Abre um shell na VM
+	limactl shell $(LAB_VM)
+
+lab-destroy: ## Apaga a VM, o disco extra e os arquivos gerados
+	-limactl delete --force $(LAB_VM)
+	-limactl disk delete $(LAB_DISCO)
+	rm -f lab/.gerado/inventario.ini lab/.gerado/known_hosts

@@ -1,0 +1,6 @@
+# Coleções usadas pelos playbooks, com versão fixa para o resultado não mudar sozinho.
+collections:
+  - name: ansible.posix
+    version: 2.2.2
+  - name: community.general
+    version: 14.0.1
