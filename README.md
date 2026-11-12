@@ -80,6 +80,7 @@ Precisa de Docker e [uv](https://docs.astral.sh/uv/). `make help` lista todos os
 cp .env.example .env        # e trocar as senhas e chaves
 make up                     # banco + bootstrap + migrations + 3 serviços, espera ficarem saudáveis
 make smoke                  # confere: serviços prontos e um pedido de ponta a ponta
+make seed                   # dados de exemplo pelas APIs (rodar de novo não duplica)
 make logs                   # logs JSON dos 3 serviços
 make down
 ```
@@ -110,7 +111,7 @@ make test                   # testes dos três, com cobertura mínima de 70%
 make migrations-check       # migrations sobem, descem e batem com o modelo
 ```
 
-O CI roda em cada PR o `make test` e o `make migrations-check` (um job por serviço, contra PostgreSQL real) e o `make up` + `make smoke` a partir do `.env.example`.
+O CI roda em cada PR o `make test` e o `make migrations-check` (um job por serviço, contra PostgreSQL real) e o `make up` + `make smoke` + `make seed` (duas vezes, a segunda sem poder mudar nada) a partir do `.env.example`.
 
 ## Rodando os checks localmente
 
