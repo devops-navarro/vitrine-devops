@@ -2,6 +2,9 @@
 export
 
 POSTGRES_PORT ?= 5432
+# Um só download do provider AWS (~730 MB) para todos os módulos: sem isto,
+# cada pasta .terraform guarda a própria cópia.
+TF_PLUGIN_CACHE_DIR ?= $(HOME)/.terraform.d/plugin-cache
 DB_CONTAINER  := vitrine-db
 DB_IMAGE      := postgres:17-alpine
 
@@ -193,6 +196,7 @@ tf-fmt: ## terraform fmt (só confere, não altera)
 	terraform fmt -check -recursive -diff infra
 
 tf-validate: ## terraform validate em cada módulo e ambiente, sem backend
+	@mkdir -p $(TF_PLUGIN_CACHE_DIR)
 	@for d in $(TF_RAIZES); do \
 		echo "== $$d"; \
 		terraform -chdir=$$d init -backend=false -input=false >/dev/null && \
@@ -206,6 +210,7 @@ tf-sec: ## Checkov: configurações inseguras
 	checkov -d infra --framework terraform --quiet --compact
 
 tf-test: ## terraform test com provider simulado (sem credenciais)
+	@mkdir -p $(TF_PLUGIN_CACHE_DIR)
 	@for d in $(TF_MODULOS_COM_TESTE); do \
 		echo "== $$d"; \
 		terraform -chdir=$$d init -backend=false -input=false >/dev/null && \

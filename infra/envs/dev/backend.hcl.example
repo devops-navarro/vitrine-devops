@@ -1,0 +1,4 @@
+# Copie para backend.hcl (fora do Git) com o bucket criado pelo ambiente bootstrap:
+#   terraform -chdir=../bootstrap output -raw bucket_state
+bucket = "vitrine-tfstate-<numero-da-conta>-us-east-1"
+region = "us-east-1"
