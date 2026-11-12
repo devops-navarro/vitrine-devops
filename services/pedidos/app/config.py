@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     postgres_user: str
     postgres_password: SecretStr
     postgres_db: str
+    log_level: str = "INFO"
     # Mais de uma chave, separadas por vírgula, permite rodízio sem parar
     # ninguém: entra a nova, os consumidores migram, sai a antiga.
     api_keys: SecretStr

@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -12,9 +12,16 @@ class Base(DeclarativeBase):
     pass
 
 
-# pool_pre_ping descarta conexões que o banco já fechou (reinício, failover)
-engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+# pool_pre_ping descarta conexões que o banco já fechou (reinício, failover).
+# connect_timeout evita que /ready e as requisições fiquem presos num banco que não responde.
+engine = create_engine(
+    get_settings().database_url, pool_pre_ping=True, connect_args={"connect_timeout": 3}
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def get_engine() -> Engine:
+    return engine
 
 
 def get_session() -> Iterator[Session]:
