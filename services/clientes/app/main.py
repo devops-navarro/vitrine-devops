@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import clientes
+from app.routers import clientes, enderecos
 
 app = FastAPI(
     title="Vitrine · clientes",
@@ -15,3 +15,4 @@ def health() -> dict[str, str]:
 
 
 app.include_router(clientes.router)
+app.include_router(enderecos.router)
