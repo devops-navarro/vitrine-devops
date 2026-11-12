@@ -6,10 +6,12 @@ DB_CONTAINER  := vitrine-db
 DB_IMAGE      := postgres:17-alpine
 
 .PHONY: help db-up db-down db-reset db-psql db-bootstrap clientes-migrate clientes-run clientes-test \
-	catalogo-migrate catalogo-run catalogo-test pedidos-migrate pedidos-run pedidos-test
+	catalogo-migrate catalogo-run catalogo-test pedidos-migrate pedidos-run pedidos-test \
+	test migrations-check clientes-migrations-check catalogo-migrations-check \
+	pedidos-migrations-check
 
 help: ## Lista os comandos disponíveis
-	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-18s %s\n", $$1, $$2}'
+	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
 
 # O container recebe só as variáveis do administrador, não as chaves dos serviços.
 db-up: ## Sobe o PostgreSQL local
@@ -70,3 +72,23 @@ pedidos-run: ## Sobe a API de pedidos em http://localhost:8003/docs
 
 pedidos-test: ## Roda os testes do serviço pedidos
 	cd services/pedidos && uv run pytest -q
+
+test: clientes-test catalogo-test pedidos-test ## Roda os testes dos três serviços
+
+migrations-check: clientes-migrations-check catalogo-migrations-check pedidos-migrations-check ## Confere as migrations dos três serviços
+
+# Aplica, desfaz tudo e reaplica: prova que o downgrade funciona e que as
+# migrations sobem num banco vazio. O check falha se o modelo divergir delas.
+# Roda no banco de teste, porque o downgrade apaga as tabelas.
+MIGRATIONS_CHECK = export POSTGRES_DB=$(POSTGRES_DB)_test \
+	&& uv run alembic upgrade head && uv run alembic downgrade base \
+	&& uv run alembic upgrade head && uv run alembic check
+
+clientes-migrations-check: ## Confere as migrations do clientes
+	cd services/clientes && $(MIGRATIONS_CHECK)
+
+catalogo-migrations-check: ## Confere as migrations do catalogo
+	cd services/catalogo && $(MIGRATIONS_CHECK)
+
+pedidos-migrations-check: ## Confere as migrations do pedidos
+	cd services/pedidos && $(MIGRATIONS_CHECK)

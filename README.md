@@ -82,7 +82,12 @@ make clientes-migrate catalogo-migrate pedidos-migrate
 make clientes-run           # :8001/docs  (um terminal por serviço)
 make catalogo-run           # :8002/docs
 make pedidos-run            # :8003/docs
+
+make test                   # testes dos três, com cobertura mínima de 70%
+make migrations-check       # migrations sobem, descem e batem com o modelo
 ```
+
+O CI roda o mesmo `make test` e `make migrations-check` em cada PR, um job por serviço, contra um PostgreSQL de verdade.
 
 ## Rodando os checks localmente
 
