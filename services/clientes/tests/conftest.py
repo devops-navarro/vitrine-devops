@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 os.environ["POSTGRES_DB"] = f"{os.environ.get('POSTGRES_DB', 'vitrine')}_test"
 
 from app.config import get_settings  # noqa: E402
-from app.db import engine, get_session  # noqa: E402
+from app.db import SessionLocal, engine, get_session  # noqa: E402
 from app.main import app  # noqa: E402
 
 SERVICO = Path(__file__).resolve().parents[1]
@@ -49,7 +49,8 @@ def session() -> Iterator[Session]:
     # API viram savepoints, então nenhum teste enxerga o dado de outro.
     conexao = engine.connect()
     transacao = conexao.begin()
-    sessao = Session(bind=conexao, join_transaction_mode="create_savepoint")
+    # mesma fábrica da aplicação: teste com configuração diferente esconde bug
+    sessao = SessionLocal(bind=conexao, join_transaction_mode="create_savepoint")
     try:
         yield sessao
     finally:

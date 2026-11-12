@@ -19,3 +19,10 @@ def normalizar_cpf(valor: str) -> str:
     if digitos[9] != _digito(digitos[:9]) or digitos[10] != _digito(digitos[:10]):
         raise ValueError("CPF inválido: dígito verificador não confere")
     return digitos
+
+
+def normalizar_cep(valor: str) -> str:
+    digitos = re.sub(r"[.\-\s]", "", valor)
+    if not re.fullmatch(r"[0-9]{8}", digitos):
+        raise ValueError("CEP deve ter 8 dígitos")
+    return digitos
