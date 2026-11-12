@@ -55,3 +55,12 @@ VPC em 2 ou 3 AZs, com uma subnet pública e uma privada em cada.
 ├── 10.0.16.0/20   privada  AZ a
 └── 10.0.32.0/20   privada  AZ b
 ```
+
+### ecr
+
+Um repositório por serviço (`vitrine/clientes`, `vitrine/catalogo`, `vitrine/pedidos`):
+
+- **Tags imutáveis**: a imagem `v1.2.3` não é trocada por baixo; para mudar, publica-se outra tag.
+- **Scan na publicação** e **cifra KMS** (chave gerenciada pela AWS, sem custo de chave própria).
+- **Ciclo de vida**: imagens sem tag somem em 7 dias; das com tag, ficam as 20 mais recentes (no mínimo 5, para ter para onde voltar num rollback).
+- `force_delete = false`: um `destroy` não apaga repositório com imagens.
