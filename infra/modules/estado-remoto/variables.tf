@@ -18,3 +18,9 @@ variable "dias_versoes_antigas" {
     error_message = "Guarde ao menos 7 dias de versões antigas."
   }
 }
+
+variable "exigir_tls" {
+  description = "Política do bucket negando acesso sem TLS. Só o emulador local desliga, porque não informa aws:SecureTransport."
+  type        = bool
+  default     = true
+}

@@ -14,7 +14,8 @@ DB_IMAGE      := postgres:17-alpine
 	pedidos-migrations-check up down logs ps smoke seed \
 	lab-deps lab-vm lab-ping lab-ssh lab-destroy lab lab-play lab-idempotencia lab-lint \
 	lab-monitoracao lab-monitoracao-down scripts-lint scripts-test \
-	tf-fmt tf-validate tf-lint tf-sec tf-test tf-check
+	tf-fmt tf-validate tf-lint tf-sec tf-test tf-check \
+	tf-local-up tf-local-apply tf-local-plan tf-local-destroy tf-local-down
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -189,7 +190,7 @@ scripts-test: ## Testes dos scripts Bash (bats)
 
 # --- Terraform (Fase 3): tudo roda sem conta AWS ---
 
-TF_RAIZES := $(sort $(wildcard infra/modules/*) $(wildcard infra/envs/*))
+TF_RAIZES := $(sort $(wildcard infra/modules/*) $(filter-out infra/envs/local,$(wildcard infra/envs/*)) $(patsubst %/main.tf,%,$(wildcard infra/envs/local/*/main.tf)))
 TF_MODULOS_COM_TESTE := $(sort $(patsubst %/tests,%,$(wildcard infra/modules/*/tests)))
 
 tf-fmt: ## terraform fmt (só confere, não altera)
@@ -218,3 +219,32 @@ tf-test: ## terraform test com provider simulado (sem credenciais)
 	done
 
 tf-check: tf-fmt tf-validate tf-lint tf-sec tf-test ## Todos os checks de Terraform
+
+# --- Terraform contra o emulador (Moto): plan, apply e destroy sem conta AWS ---
+
+TF_LOCAL := infra/envs/local
+# Rede de segurança: qualquer serviço que faltar na lista de endpoints vai para
+# o emulador, nunca para a AWS de verdade.
+tf-local-%: export AWS_ENDPOINT_URL = https://localhost:4566
+
+tf-local-up: ## Sobe o emulador da AWS (Moto) em https://localhost:4566
+	docker compose -f $(TF_LOCAL)/compose.yaml up -d --wait
+
+tf-local-apply: ## Aplica no emulador: bucket do state e depois rede, ECR e OIDC com state remoto
+	@mkdir -p $(TF_PLUGIN_CACHE_DIR)
+	terraform -chdir=$(TF_LOCAL)/bootstrap init -input=false
+	terraform -chdir=$(TF_LOCAL)/bootstrap apply -auto-approve -input=false
+	terraform -chdir=$(TF_LOCAL)/plataforma init -reconfigure -input=false
+	terraform -chdir=$(TF_LOCAL)/plataforma apply -auto-approve -input=false
+
+tf-local-plan: ## Plan da plataforma no emulador; falha se houver mudança pendente
+	terraform -chdir=$(TF_LOCAL)/plataforma plan -detailed-exitcode -input=false
+
+tf-local-destroy: ## Destroi a plataforma no emulador (o bucket do state fica: force_destroy = false)
+	terraform -chdir=$(TF_LOCAL)/plataforma destroy -auto-approve -input=false
+
+tf-local-down: ## Desliga o emulador (que zera tudo) e apaga o state e o cache locais
+	docker compose -f $(TF_LOCAL)/compose.yaml down
+	rm -f $(TF_LOCAL)/bootstrap/terraform.tfstate $(TF_LOCAL)/bootstrap/terraform.tfstate.backup
+	@# a configuração de backend guardada aqui apontaria para um emulador desligado
+	rm -rf $(TF_LOCAL)/bootstrap/.terraform $(TF_LOCAL)/plataforma/.terraform

@@ -8,6 +8,7 @@ infra/
   envs/
     bootstrap/    bucket do state remoto (state local: é o único)
     dev/          ambiente de estudo: rede, ECR, EKS, RDS, OIDC do CI e orçamento
+    local/        os mesmos módulos aplicados num emulador da AWS (Moto)
 ```
 
 ## Convenções
@@ -140,3 +141,24 @@ Preços de referência de `us-east-1`, por hora, com o ambiente ligado. São est
 Uma sessão de 4 horas fica em torno de **US$ 1**. Esquecido ligado, passa de **US$ 150 por mês**: é para isso que existe o orçamento com alerta de previsão. O load balancer da Fase 4 soma cerca de US$ 0,023 por hora.
 
 Fica cobrando mesmo com o ambiente destruído: o bucket do state e a chave KMS dele (`bootstrap`), cerca de US$ 1 por mês. As chaves KMS do ambiente entram em período de exclusão de 7 dias ao serem apagadas.
+
+## Apply de verdade sem conta AWS
+
+`infra/envs/local` aplica os módulos no [Moto](https://github.com/getmoto/moto), um emulador da AWS de código aberto, em duas etapas como na conta real: o `bootstrap` cria o bucket do state, e a `plataforma` guarda o state **nele**, com lock nativo, aplicando rede, ECR e o OIDC do pipeline (EKS e RDS ficam de fora: o suporte do emulador é raso demais para provar algo).
+
+```bash
+make tf-local-up        # emulador em https://localhost:4566
+make tf-local-apply     # bootstrap + plataforma (29 recursos)
+make tf-local-plan      # falha se o plan seguinte tiver mudança
+make tf-local-destroy   # destroi a plataforma; o bucket do state fica (force_destroy = false)
+make tf-local-down      # desliga o emulador, que zera tudo
+```
+
+O CI roda esse ciclo em todo PR.
+
+Cuidados e limitações:
+- **Nada vai para a AWS**: credenciais falsas, todos os serviços apontados para o emulador e `AWS_ENDPOINT_URL` como rede de segurança para qualquer serviço esquecido. (Foi esquecendo o S3 Control que uma chamada chegou à AWS de verdade e voltou com 403.)
+- **HTTPS** com o certificado gerado pelo emulador (`insecure = true` só nestes ambientes).
+- **TLS no bucket desligado só aqui** (`exigir_tls = false`): o Moto não preenche `aws:SecureTransport` e nega até acesso por HTTPS. Na AWS a regra fica ligada, que é o padrão do módulo.
+- **Tags de bucket**: o provider grava pelo S3 Control e o Moto não guarda, então o plan do `bootstrap` local sempre mostra as tags de novo. O da `plataforma`, que é o verificado, fica limpo.
+- Por que Moto e não LocalStack: as versões atuais do LocalStack exigem token de conta, mesmo no plano gratuito.

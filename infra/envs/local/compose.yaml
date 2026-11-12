@@ -1,0 +1,19 @@
+# Emulador da AWS para praticar plan, apply e destroy sem conta: make tf-local-up.
+# Moto em vez de LocalStack: as versões novas do LocalStack exigem token de conta.
+
+name: vitrine-aws-local
+
+services:
+  moto:
+    image: motoserver/moto:5.2.5
+    # HTTPS com certificado gerado na hora: o bucket do state recusa acesso
+    # sem TLS, e o emulador aplica essa política como a AWS aplicaria.
+    command: ["-p", "5000", "--ssl"]
+    ports:
+      # 4566 é a porta de costume dos emuladores; a 5000 do Moto conflita com o AirPlay do macOS
+      - 127.0.0.1:4566:5000
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import ssl, urllib.request; urllib.request.urlopen('https://127.0.0.1:5000/moto-api/', context=ssl._create_unverified_context())"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
