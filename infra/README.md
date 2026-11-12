@@ -7,6 +7,7 @@ infra/
   modules/        módulos reutilizáveis, sem state próprio, cada um com tests/
   envs/
     bootstrap/    bucket do state remoto (state local: é o único)
+    dev/          ambiente de estudo: rede, ECR, EKS, RDS, OIDC do CI e orçamento
 ```
 
 ## Convenções
@@ -101,3 +102,41 @@ O GitHub Actions publica imagens no ECR **sem chave de acesso guardada**. O GitH
 - deste repositório e de uma das branches informadas (`sub = repo:devops-navarro/vitrine-devops:ref:refs/heads/main`), por comparação exata.
 
 O papel só faz login no registro e publica nos repositórios informados: sem curinga, sem apagar imagem. Curinga no repositório, na branch ou nos ARNs é recusado na validação. O provider OIDC é um por conta; se já existir, `criar_provider_oidc = false` reaproveita.
+
+
+### orcamento
+
+AWS Budget mensal com alerta por e-mail em 50% e 80% do gasto real e quando a **previsão** do mês passa de 100%. É a rede de segurança de quem estuda com a própria conta: avisa se um ambiente ficar ligado por esquecimento.
+
+## Ambiente dev
+
+`infra/envs/dev` junta os módulos:
+
+```
+rede (2 AZs, 1 NAT) ──> eks (nós Spot, arm64) ──> rds (aceita só o security group do cluster)
+ecr (3 repositórios) ──> github-oidc (pipeline publica só neles)
+orcamento (conta inteira)
+```
+
+- **Backend S3** com configuração parcial: `backend.hcl` (fora do Git) traz o bucket criado pelo `bootstrap`. Há um `backend.hcl.example`.
+- **Variáveis** em `terraform.tfvars` (fora do Git), a partir do `terraform.tfvars.example`: dono, e-mail dos alertas, seu IP para o `kubectl` e o papel de administrador.
+- **AZs explícitas** (`us-east-1a` e `us-east-1b`): "as primeiras que a AWS listar" muda quando ela cria uma zona nova, e o Terraform tentaria mover as subnets.
+- **Escolhas de laboratório, escritas no ambiente**: um NAT só, nós Spot, RDS sem Multi-AZ, sem proteção contra exclusão, sem snapshot final e com 1 dia de backup. Os módulos nascem com o contrário.
+
+### Custo estimado
+
+Preços de referência de `us-east-1`, por hora, com o ambiente ligado. São estimativas: confira na [calculadora da AWS](https://calculator.aws/) antes do apply.
+
+| Item | US$/hora |
+| --- | --- |
+| Control plane do EKS | 0,100 |
+| NAT Gateway (sem contar o tráfego) e seu IP público | 0,050 |
+| 2 nós `t4g.medium` Spot (On-Demand: ~0,067) | ~0,025 |
+| RDS `db.t4g.micro`, uma AZ, 20 GB | ~0,019 |
+| Discos dos nós (2 × 30 GB gp3) | ~0,007 |
+| Logs do control plane, chaves KMS, segredo | ~0,020 |
+| **Total** | **~0,22** |
+
+Uma sessão de 4 horas fica em torno de **US$ 1**. Esquecido ligado, passa de **US$ 150 por mês**: é para isso que existe o orçamento com alerta de previsão. O load balancer da Fase 4 soma cerca de US$ 0,023 por hora.
+
+Fica cobrando mesmo com o ambiente destruído: o bucket do state e a chave KMS dele (`bootstrap`), cerca de US$ 1 por mês. As chaves KMS do ambiente entram em período de exclusão de 7 dias ao serem apagadas.

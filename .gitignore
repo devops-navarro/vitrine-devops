@@ -34,3 +34,6 @@ lab/.gerado/
 
 # Lock só nos ambientes (envs/): num módulo, quem fixa a versão é quem o usa
 infra/modules/**/.terraform.lock.hcl
+
+# Configuração do backend com o nome real do bucket (contém o número da conta)
+infra/envs/*/backend.hcl

@@ -1,0 +1,5 @@
+# Copie para terraform.tfvars (fora do Git) e preencha.
+owner                = "seu-nome"
+emails_alertas       = ["voce@example.com"]
+cidrs_acesso_api     = ["203.0.113.10/32"] # seu IP público: curl -s https://checkip.amazonaws.com
+arns_administradores = ["arn:aws:iam::<numero-da-conta>:role/<seu-papel-de-admin>"]
