@@ -92,3 +92,12 @@ Cluster Kubernetes gerenciado, com nós nas subnets privadas.
 | Capacidade | `ON_DEMAND` ou `SPOT` |
 | Addons | `vpc-cni`, `coredns`, `kube-proxy`, `eks-pod-identity-agent` |
 | Permissão para pods | EKS Pod Identity: um papel IAM por service account, sem chave e sem dar a permissão ao nó |
+
+### github-oidc
+
+O GitHub Actions publica imagens no ECR **sem chave de acesso guardada**. O GitHub emite um token OIDC por execução; a AWS troca por credenciais temporárias (1 hora no máximo) se o token for:
+
+- emitido para a AWS (`aud = sts.amazonaws.com`);
+- deste repositório e de uma das branches informadas (`sub = repo:devops-navarro/vitrine-devops:ref:refs/heads/main`), por comparação exata.
+
+O papel só faz login no registro e publica nos repositórios informados: sem curinga, sem apagar imagem. Curinga no repositório, na branch ou nos ARNs é recusado na validação. O provider OIDC é um por conta; se já existir, `criar_provider_oidc = false` reaproveita.
