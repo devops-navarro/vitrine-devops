@@ -6,7 +6,7 @@
 
 [![ci](https://github.com/devops-navarro/vitrine-devops/actions/workflows/ci.yml/badge.svg)](https://github.com/devops-navarro/vitrine-devops/actions/workflows/ci.yml)
 
-**Status:** Fase 1 · em construção
+**Status:** Fase 1 concluída ([v0.1.0](docs/evidencias/fase-1.md)) · Fase 2 a seguir
 
 ## Arquitetura alvo · Target architecture
 
@@ -51,7 +51,7 @@ A escolha da stack segue o que as vagas DevOps remotas pedem: veja [ADR 0000](do
 
 Cada fase vira um [milestone](https://github.com/devops-navarro/vitrine-devops/milestones) com suas issues quando começa. As pastas do repositório nascem junto com o que é construído.
 
-- [ ] **Fase 1** · APIs FastAPI + PostgreSQL (`services/`, `scripts/`)
+- [x] **Fase 1** · APIs FastAPI + PostgreSQL (`services/`, `scripts/`) · [evidências](docs/evidencias/fase-1.md)
 - [ ] **Fase 2** · Linux, redes e automação com Ansible (`lab/`, `scripts/`)
 - [ ] **Fase 3** · AWS com Terraform (`infra/`)
 - [ ] **Fase 4** · Containers, Kubernetes, CI/CD e GitOps (`deploy/`, `.github/`)
