@@ -76,3 +76,19 @@ PostgreSQL 17 gerenciado, nas subnets privadas.
 - **Padrões seguros para produção**: Multi-AZ, proteção contra exclusão, snapshot final e 7 dias de backup. O ambiente de laboratório desliga Multi-AZ, proteção e snapshot de forma explícita, porque é criado e destruído a cada sessão.
 
 Os usuários de cada serviço (ADR 0001) não são criados aqui: o mesmo `infra/postgres/bootstrap.sql` roda contra o RDS como um Job no cluster (Fase 4), com a senha do administrador lida do Secrets Manager.
+
+### eks
+
+Cluster Kubernetes gerenciado, com nós nas subnets privadas.
+
+| Item | Escolha |
+| --- | --- |
+| API do Kubernetes | Privada por padrão. Pública só para IPs informados; `0.0.0.0/0` é recusado |
+| Acesso ao cluster | Só por access entries (`authentication_mode = "API"`); quem cria o cluster não vira administrador escondido |
+| Secrets | Cifrados no etcd com chave KMS própria, com rotação |
+| Logs do control plane | Os cinco tipos (inclusive `audit`), 30 dias |
+| Nós | Node group gerenciado, IMDSv2 obrigatório com hop limit 1 (pod não alcança as credenciais do nó), disco cifrado, só leitura no ECR, troca de um nó por vez |
+| Arquitetura | `arm64` (Graviton, ~20% mais barato) por padrão; exige imagens multi-arquitetura. `x86_64` disponível |
+| Capacidade | `ON_DEMAND` ou `SPOT` |
+| Addons | `vpc-cni`, `coredns`, `kube-proxy`, `eks-pod-identity-agent` |
+| Permissão para pods | EKS Pod Identity: um papel IAM por service account, sem chave e sem dar a permissão ao nó |
