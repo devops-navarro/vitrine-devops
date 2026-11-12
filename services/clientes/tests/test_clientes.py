@@ -160,3 +160,25 @@ def test_remover_devolve_204_e_some_da_busca(client):
 
 def test_remover_inexistente_devolve_404(client):
     assert client.delete("/clientes/999999999").status_code == 404
+
+
+@pytest.mark.parametrize("cpf", ["52998224725", "529.982.247-25"])
+def test_busca_por_cpf_com_ou_sem_mascara(client, cpf):
+    ana = criar(client, ANA)
+    criar(client, BRUNO)
+
+    resposta = client.get("/clientes", params={"cpf": cpf})
+
+    assert resposta.status_code == 200
+    assert [c["id"] for c in resposta.json()] == [ana["id"]]
+
+
+def test_busca_por_cpf_sem_resultado_devolve_lista_vazia(client):
+    assert client.get("/clientes", params={"cpf": "39053344705"}).json() == []
+
+
+def test_busca_por_cpf_invalido_devolve_422(client):
+    resposta = client.get("/clientes", params={"cpf": "123"})
+
+    assert resposta.status_code == 422
+    assert resposta.json() == {"detail": "CPF deve ter 11 dígitos"}

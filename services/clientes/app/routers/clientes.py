@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import select
 
 from app.deps import SessionDep, buscar_cliente_ou_404, salvar
 from app.models import Cliente
 from app.schemas import ClienteEntrada, ClienteSaida
+from app.validacao import normalizar_cpf
 
 router = APIRouter(prefix="/clientes", tags=["clientes"])
 
@@ -21,11 +22,20 @@ DUPLICADOS = {
 @router.get("", response_model=list[ClienteSaida])
 def listar(
     session: SessionDep,
+    cpf: Annotated[
+        str | None,
+        Query(description="Busca pelo CPF, com ou sem máscara.", examples=["529.982.247-25"]),
+    ] = None,
     # limite máximo para uma chamada nunca trazer a tabela inteira
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[Cliente]:
     consulta = select(Cliente).order_by(Cliente.id).limit(limit).offset(offset)
+    if cpf is not None:
+        try:
+            consulta = consulta.where(Cliente.cpf == normalizar_cpf(cpf))
+        except ValueError as erro:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(erro)) from erro
     return list(session.scalars(consulta))
 
 

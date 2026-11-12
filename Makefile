@@ -8,7 +8,7 @@ DB_IMAGE      := postgres:17-alpine
 .PHONY: help db-up db-down db-reset db-psql db-bootstrap clientes-migrate clientes-run clientes-test \
 	catalogo-migrate catalogo-run catalogo-test pedidos-migrate pedidos-run pedidos-test \
 	test migrations-check clientes-migrations-check catalogo-migrations-check \
-	pedidos-migrations-check up down logs ps smoke
+	pedidos-migrations-check up down logs ps smoke seed
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -30,6 +30,9 @@ ps: ## Situação de cada container do compose
 
 smoke: ## Confere o ambiente no ar: serviços prontos e um pedido de ponta a ponta
 	uv run --no-project --python 3.12 scripts/smoke.py
+
+seed: ## Popula dados de exemplo pelas APIs (pode rodar quantas vezes quiser)
+	uv run --no-project --python 3.12 scripts/seed.py $(ARGS)
 
 # --- desenvolvimento local, serviço a serviço ---
 
