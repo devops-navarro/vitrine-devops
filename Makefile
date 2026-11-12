@@ -146,8 +146,11 @@ lab-play: ## Roda o playbook do laboratório na VM
 
 # Roda o playbook de novo e falha se a segunda execução mudar alguma coisa.
 lab-idempotencia: ## Confere que rodar o playbook de novo não muda nada
-	cd lab && ansible-playbook site.yml | tee .gerado/segunda-execucao.log
-	@grep -qE 'changed=0 .*failed=0' lab/.gerado/segunda-execucao.log \
+	@# sem tee: com ele, o código de erro do ansible-playbook se perderia
+	cd lab && { ansible-playbook site.yml > .gerado/segunda-execucao.log 2>&1; \
+		codigo=$$?; cat .gerado/segunda-execucao.log; exit $$codigo; }
+	@# exige tarefas executadas: "changed=0" com "unreachable=1" não prova nada
+	@grep -qE 'ok=[1-9][0-9]* +changed=0 +unreachable=0 +failed=0' lab/.gerado/segunda-execucao.log \
 		&& echo "idempotente: nenhuma mudança na segunda execução" \
 		|| { echo "NÃO idempotente: a segunda execução mudou algo"; exit 1; }
 

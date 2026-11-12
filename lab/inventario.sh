@@ -15,6 +15,13 @@ if [[ -z "$ip" ]]; then
 fi
 
 mkdir -p "$dir/.gerado"
+
+# Chaves do host lidas pelo canal local do Lima, não pela rede da VM. Com elas,
+# o SSH exige correspondência exata (StrictHostKeyChecking=yes). O Lima gera um
+# instance-id novo a cada partida, e o cloud-init troca as chaves do host: por
+# isso o known_hosts é refeito sempre que a VM é ligada.
+limactl shell "$vm" -- sh -c 'cat /etc/ssh/ssh_host_*_key.pub' \
+  | awk -v ip="$ip" '{print ip, $1, $2}' > "$dir/.gerado/known_hosts"
 cat > "$dir/.gerado/inventario.ini" <<INI
 [lab]
 $vm ansible_host=$ip ansible_user=$usuario ansible_ssh_private_key_file=$HOME/.lima/_config/user ansible_python_interpreter=/usr/bin/python3
