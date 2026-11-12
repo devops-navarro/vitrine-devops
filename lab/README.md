@@ -97,3 +97,5 @@ make lab-monitoracao        # já incluído no make lab
 open http://localhost:3000  # usuário admin, senha GRAFANA_ADMIN_PASSWORD do .env
 make lab-monitoracao-down
 ```
+
+O que acontece entre digitar uma URL e ver a página, com saídas reais desta VM: [docs/redes.md](../docs/redes.md).
