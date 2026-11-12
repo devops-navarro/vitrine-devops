@@ -32,6 +32,8 @@ flowchart LR
   obs --> chat[Alertas no Slack/Discord]
 ```
 
+Detalhes do modelo de dados, do fluxo de pedido e da exposição na AWS com ALB e WAF: [docs/arquitetura.md](docs/arquitetura.md).
+
 ## Stack
 
 | Camada | Ferramentas |
