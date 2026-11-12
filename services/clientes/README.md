@@ -8,6 +8,7 @@ Da raiz do repositório, com o `.env` criado a partir do `.env.example`:
 
 ```bash
 make db-up              # PostgreSQL local
+make db-bootstrap       # usuários e schemas dos serviços
 make clientes-migrate   # cria/atualiza as tabelas
 make clientes-run       # API em http://localhost:8001/docs
 make clientes-test      # testes

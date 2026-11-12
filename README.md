@@ -70,6 +70,20 @@ Cada fase vira um [milestone](https://github.com/devops-navarro/vitrine-devops/m
 2. Toda infraestrutura nasce de código: nada criado à mão no console.
 3. Recursos na AWS levam as tags `projeto=vitrine`, `owner` e `ttl`, e são destruídos no fim de cada sessão (`make aws-down`).
 
+## Rodando localmente
+
+Precisa de Docker e [uv](https://docs.astral.sh/uv/). `make help` lista todos os comandos.
+
+```bash
+cp .env.example .env        # e trocar as senhas e chaves
+make db-up                  # PostgreSQL em container
+make db-bootstrap           # um usuário e um schema por serviço (ADR 0001)
+make clientes-migrate catalogo-migrate pedidos-migrate
+make clientes-run           # :8001/docs  (um terminal por serviço)
+make catalogo-run           # :8002/docs
+make pedidos-run            # :8003/docs
+```
+
 ## Rodando os checks localmente
 
 ```bash
