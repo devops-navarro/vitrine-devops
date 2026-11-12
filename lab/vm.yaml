@@ -1,0 +1,36 @@
+# VM do laboratório (Lima). make lab-vm cria, make lab-destroy apaga.
+# O que vem depois de ligada (usuário, SSH, nginx, disco) é tudo do Ansible.
+
+minimumLimaVersion: 2.0.0
+
+# Versão fixa: "ubuntu-lts" mudaria de versão sozinho quando sair a próxima LTS.
+base:
+  - template:_images/ubuntu-26.04
+
+vmType: vz
+cpus: 2
+memory: 1536MiB
+disk: 10GiB
+
+# Servidor não enxerga as pastas do Mac.
+mounts: []
+
+containerd:
+  system: false
+  user: false
+
+# Rede vzNAT: a VM ganha um IP próprio alcançável pelo Mac, sem sudo. É por ele
+# que o nginx e o node-exporter são acessados, e é ele que o firewall filtra.
+networks:
+  - vzNAT: true
+
+# Sem atalhos pelo localhost do Mac: o acesso é pelo IP da VM, como num servidor real.
+portForwards:
+  - guestPortRange: [1, 65535]
+    proto: any
+    ignore: true
+
+# Disco cru de 2 GB, sem formatar: partição e sistema de arquivos ficam com o Ansible.
+additionalDisks:
+  - name: vitrine-lab-dados
+    format: false

@@ -28,3 +28,6 @@ htmlcov/
 .DS_Store
 .idea/
 .vscode/
+
+# Laboratório: inventário e known_hosts gerados para a VM local
+lab/.gerado/
