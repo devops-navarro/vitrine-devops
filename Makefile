@@ -5,15 +5,16 @@ POSTGRES_PORT ?= 5432
 DB_CONTAINER  := vitrine-db
 DB_IMAGE      := postgres:17-alpine
 
-.PHONY: help db-up db-down db-reset db-psql clientes-migrate clientes-run clientes-test \
+.PHONY: help db-up db-down db-reset db-psql db-bootstrap clientes-migrate clientes-run clientes-test \
 	catalogo-migrate catalogo-run catalogo-test pedidos-migrate pedidos-run pedidos-test
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-18s %s\n", $$1, $$2}'
 
+# O container recebe só as variáveis do administrador, não as chaves dos serviços.
 db-up: ## Sobe o PostgreSQL local
 	@test -f .env || (echo "Crie o .env a partir do .env.example" && exit 1)
-	docker run -d --name $(DB_CONTAINER) --env-file .env \
+	docker run -d --name $(DB_CONTAINER) -e POSTGRES_USER -e POSTGRES_PASSWORD -e POSTGRES_DB \
 		-p 127.0.0.1:$(POSTGRES_PORT):5432 \
 		-v vitrine-db-data:/var/lib/postgresql/data \
 		$(DB_IMAGE)
@@ -25,8 +26,23 @@ db-reset: db-down ## Apaga o volume e recria o banco do zero
 	docker volume rm vitrine-db-data
 	$(MAKE) db-up
 
+db-bootstrap: ## Cria um usuário por serviço, dono só do próprio schema
+	docker cp infra/postgres/. $(DB_CONTAINER):/tmp/bootstrap
+	docker exec -e POSTGRES_DB -e CLIENTES_DB_PASSWORD -e CATALOGO_DB_PASSWORD \
+		-e PEDIDOS_DB_PASSWORD $(DB_CONTAINER) \
+		psql -q -U $(POSTGRES_USER) -d postgres -f /tmp/bootstrap/bootstrap.sql
+
 db-psql: ## Abre o psql dentro do container
 	docker exec -it $(DB_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+
+# Cada serviço conecta com o próprio usuário, não com o administrador do banco.
+# Exportado por alvo para a senha não aparecer no comando que o make imprime.
+clientes-%: export POSTGRES_USER = clientes
+clientes-%: export POSTGRES_PASSWORD = $(CLIENTES_DB_PASSWORD)
+catalogo-%: export POSTGRES_USER = catalogo
+catalogo-%: export POSTGRES_PASSWORD = $(CATALOGO_DB_PASSWORD)
+pedidos-%: export POSTGRES_USER = pedidos
+pedidos-%: export POSTGRES_PASSWORD = $(PEDIDOS_DB_PASSWORD)
 
 clientes-migrate: ## Aplica as migrations do serviço clientes
 	cd services/clientes && uv run alembic upgrade head

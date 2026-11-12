@@ -14,7 +14,7 @@ flowchart LR
 
 ## Rodando
 
-Precisa do `clientes` e do `catalogo` no ar. Da raiz do repositório, cada um num terminal:
+Precisa do `clientes` e do `catalogo` no ar. Da raiz do repositório, com `make db-up` e `make db-bootstrap` já feitos, cada um num terminal:
 
 ```bash
 make clientes-run

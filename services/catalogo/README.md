@@ -10,6 +10,7 @@ Da raiz do repositório, com o `.env` criado a partir do `.env.example`:
 
 ```bash
 make db-up              # PostgreSQL local
+make db-bootstrap       # usuários e schemas dos serviços
 make catalogo-migrate   # cria/atualiza as tabelas
 make catalogo-run       # API em http://localhost:8002/docs
 make catalogo-test      # testes
