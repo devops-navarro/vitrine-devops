@@ -85,3 +85,33 @@ jobs:
 
       - name: Migrations sobem, descem e batem com o modelo
         run: make ${{ matrix.servico }}-migrations-check
+
+  # Sobe o ambiente inteiro como um dev faria (make up) e confere um pedido de
+  # ponta a ponta. Pega Dockerfile quebrado, variável faltando no .env.example
+  # e erro de rede entre os serviços.
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.7"
+
+      - name: .env a partir do exemplo
+        run: cp .env.example .env
+
+      - name: Sobe banco e serviços
+        run: make up
+
+      - name: Smoke test
+        run: make smoke
+
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker compose ps -a && docker compose logs --no-color
+
+      - name: Desliga
+        if: always()
+        run: docker compose down --volumes
