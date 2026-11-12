@@ -10,7 +10,7 @@ DB_IMAGE      := postgres:17-alpine
 	test migrations-check clientes-migrations-check catalogo-migrations-check \
 	pedidos-migrations-check up down logs ps smoke seed \
 	lab-deps lab-vm lab-ping lab-ssh lab-destroy lab lab-play lab-idempotencia lab-lint \
-	lab-monitoracao lab-monitoracao-down
+	lab-monitoracao lab-monitoracao-down scripts-lint scripts-test
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -174,3 +174,11 @@ lab-destroy: ## Apaga a VM, o disco extra e os arquivos gerados
 	-limactl delete --force $(LAB_VM)
 	-limactl disk delete $(LAB_DISCO)
 	rm -f lab/.gerado/inventario.ini lab/.gerado/known_hosts
+
+# --- scripts Bash ---
+
+scripts-lint: ## shellcheck nos scripts Bash
+	shellcheck scripts/*.sh lab/*.sh
+
+scripts-test: ## Testes dos scripts Bash (bats)
+	bats scripts/testes/
