@@ -36,7 +36,7 @@ app/
   routers/    rotas por recurso
   main.py     aplicação FastAPI
 migrations/   migrations do Alembic, com a tabela de versão no próprio schema
-tests/       pytest contra um PostgreSQL real
+tests/        pytest contra um PostgreSQL real
 ```
 
 ## Testes
