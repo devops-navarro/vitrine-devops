@@ -34,3 +34,24 @@ Os testes usam `mock_provider "aws"`: o Terraform faz o plano de verdade, mas o 
 ### estado-remoto
 
 Bucket do state: versionado (para recuperar um state corrompido), cifrado com chave KMS própria com rotação, sem ACL, sem acesso público, negando qualquer acesso sem TLS, com `force_destroy = false`. Versões antigas expiram em 90 dias.
+
+### rede
+
+VPC em 2 ou 3 AZs, com uma subnet pública e uma privada em cada.
+
+| Item | Escolha |
+| --- | --- |
+| CIDRs | Calculados com `cidrsubnet`: públicas `/24` (load balancer e NAT), privadas `/20` (no EKS cada pod recebe um IP da VPC) |
+| Saída das privadas | NAT Gateway. Um só por padrão (cerca de US$ 32 por mês cada); `nat_por_az = true` dá um por AZ, para a queda de uma zona não cortar a saída das outras |
+| IP público | Nenhuma subnet atribui automaticamente |
+| EKS | Tags `kubernetes.io/role/elb` (públicas) e `internal-elb` (privadas), para o load balancer controller achar as subnets |
+| Security group padrão | Sem regras: quem esquecer de escolher um fica isolado, não exposto |
+| Flow logs | Todo o tráfego, no CloudWatch, 30 dias |
+
+```
+10.0.0.0/16
+├── 10.0.0.0/24    pública  AZ a
+├── 10.0.1.0/24    pública  AZ b
+├── 10.0.16.0/20   privada  AZ a
+└── 10.0.32.0/20   privada  AZ b
+```
