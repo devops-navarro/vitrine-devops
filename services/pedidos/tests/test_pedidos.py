@@ -163,3 +163,35 @@ def test_pedido_nao_tem_put_nem_delete(client, loja):
 
     assert client.put(f"/pedidos/{criado['id']}", json={}).status_code == 405
     assert client.delete(f"/pedidos/{criado['id']}").status_code == 405
+
+
+def test_repassa_o_request_id_para_os_vizinhos(client, loja):
+    resposta = client.post("/pedidos", json=pedido(p10=1), headers={"X-Request-ID": "compra-42"})
+
+    assert resposta.headers["X-Request-ID"] == "compra-42"
+    assert [c.headers["X-Request-ID"] for c in loja.chamadas] == ["compra-42", "compra-42"]
+
+
+def test_mede_cada_chamada_por_servico_e_resultado(client, loja):
+    client.post("/pedidos", json=pedido(p10=1))
+    loja.falha["catalogo"] = httpx2.ReadTimeout("lento")
+    client.post("/pedidos", json=pedido(p10=1))
+
+    texto = client.get("/metrics").text
+
+    # o Prometheus escreve os rótulos em ordem alfabética
+    assert 'integracao_duracao_segundos_count{resultado="ok",servico="clientes"}' in texto
+    assert 'integracao_duracao_segundos_count{resultado="timeout",servico="catalogo"}' in texto
+
+
+def test_falha_de_integracao_gera_log_de_aviso(client, loja, caplog):
+    import logging
+
+    loja.falha["clientes"] = 503
+    with caplog.at_level(logging.WARNING, logger="vitrine.pedidos.integracoes"):
+        client.post("/pedidos", json=pedido(p10=1), headers={"X-Request-ID": "falha-1"})
+
+    registro = next(r for r in caplog.records if r.name == "vitrine.pedidos.integracoes")
+    assert registro.upstream == "clientes"
+    assert registro.result == "http_503"
+    assert registro.request_id == "falha-1"
