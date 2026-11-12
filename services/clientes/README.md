@@ -19,11 +19,16 @@ make clientes-test      # testes
 | --- | --- | --- | --- |
 | `GET` | `/clientes?limit=20&offset=0` | 200 | 422 |
 | `GET` | `/clientes/{id}` | 200 | 404 |
-| `POST` | `/clientes` | 201 + `Location` | 422 |
-| `PUT` | `/clientes/{id}` | 200 | 404, 422 |
+| `POST` | `/clientes` | 201 + `Location` | 409, 422 |
+| `PUT` | `/clientes/{id}` | 200 | 404, 409, 422 |
 | `DELETE` | `/clientes/{id}` | 204 | 404 |
 
 A listagem é paginada e limitada a 100 itens por chamada. O `PUT` substitui o recurso inteiro: campo opcional omitido volta a ser nulo.
+
+Validação:
+- CPF aceita máscara (`529.982.247-25`), é gravado só com dígitos e precisa ter dígitos verificadores válidos.
+- E-mail é validado e gravado em minúsculas.
+- CPF ou e-mail já cadastrado devolve 409. Quem garante a unicidade é o banco; a API traduz a constraint violada.
 
 ## Estrutura
 
