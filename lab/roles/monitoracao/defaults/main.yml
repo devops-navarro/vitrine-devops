@@ -1,0 +1,6 @@
+---
+monitoracao_porta: 9100
+# Quem pode coletar as métricas: o IP do Mac na rede da VM (vem do inventário).
+monitoracao_origem: "{{ lab_monitor_origem }}"
+# Serviços cujo estado (ativo, falhou...) vira métrica
+monitoracao_servicos: (nginx|ssh)\.service

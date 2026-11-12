@@ -22,8 +22,20 @@ mkdir -p "$dir/.gerado"
 # isso o known_hosts é refeito sempre que a VM é ligada.
 limactl shell "$vm" -- sh -c 'cat /etc/ssh/ssh_host_*_key.pub' \
   | awk -v ip="$ip" '{print ip, $1, $2}' > "$dir/.gerado/known_hosts"
+# Na rede vzNAT, o Mac é sempre o .1: é dele que vêm as coletas do Prometheus.
+origem="${ip%.*}.1"
+
 cat > "$dir/.gerado/inventario.ini" <<INI
 [lab]
-$vm ansible_host=$ip ansible_user=$usuario ansible_ssh_private_key_file=$HOME/.lima/_config/user ansible_python_interpreter=/usr/bin/python3
+$vm ansible_host=$ip ansible_user=$usuario ansible_ssh_private_key_file=$HOME/.lima/_config/user ansible_python_interpreter=/usr/bin/python3 lab_monitor_origem=$origem
 INI
+
+# Alvos do Prometheus (file_sd): o IP da VM muda quando ela é recriada.
+mkdir -p "$dir/.gerado/alvos"
+cat > "$dir/.gerado/alvos/node.json" <<JSON
+[{"targets": ["$ip:9100"], "labels": {"instancia": "$vm"}}]
+JSON
+cat > "$dir/.gerado/alvos/web.json" <<JSON
+[{"targets": ["http://$ip/"], "labels": {"instancia": "$vm"}}]
+JSON
 echo "inventário: $vm em $ip"

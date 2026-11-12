@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Métricas do sistema da VM: CPU, memória, disco, inodes, serviços
+  - job_name: node
+    file_sd_configs:
+      - files: [/etc/prometheus/alvos/node.json]
+
+  # Teste sintético: o blackbox acessa a página como um usuário e responde se deu certo
+  - job_name: web
+    metrics_path: /probe
+    params:
+      module: [http_hello]
+    file_sd_configs:
+      - files: [/etc/prometheus/alvos/web.json]
+    relabel_configs:
+      # o alvo vira parâmetro da chamada ao blackbox, e quem é coletado é o blackbox
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: url
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]

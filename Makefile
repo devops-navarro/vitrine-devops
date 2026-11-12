@@ -9,7 +9,8 @@ DB_IMAGE      := postgres:17-alpine
 	catalogo-migrate catalogo-run catalogo-test pedidos-migrate pedidos-run pedidos-test \
 	test migrations-check clientes-migrations-check catalogo-migrations-check \
 	pedidos-migrations-check up down logs ps smoke seed \
-	lab-deps lab-vm lab-ping lab-ssh lab-destroy lab lab-play lab-idempotencia lab-lint
+	lab-deps lab-vm lab-ping lab-ssh lab-destroy lab lab-play lab-idempotencia lab-lint \
+	lab-monitoracao lab-monitoracao-down
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -139,7 +140,13 @@ lab-vm: ## Cria e liga a VM do laboratório (Ubuntu, Lima) e gera o inventário
 	@test -f lab/.gerado/deploy_ed25519 \
 		|| ssh-keygen -q -t ed25519 -N "" -C deploy@vitrine-lab -f lab/.gerado/deploy_ed25519
 
-lab: lab-deps lab-vm lab-play ## Cria a VM e configura tudo pelo Ansible
+lab: lab-deps lab-vm lab-play lab-monitoracao ## Cria a VM, configura pelo Ansible e liga a monitoração
+
+lab-monitoracao: ## Prometheus, blackbox e Grafana (localhost:3000) monitorando a VM
+	docker compose -f lab/monitoracao/compose.yaml up -d --wait
+
+lab-monitoracao-down: ## Desliga a monitoração do laboratório
+	docker compose -f lab/monitoracao/compose.yaml down
 
 lab-play: ## Roda o playbook do laboratório na VM
 	cd lab && ansible-playbook site.yml
