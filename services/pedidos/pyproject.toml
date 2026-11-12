@@ -33,3 +33,8 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=app --cov-report=term-missing:skip-covered"
+
+[tool.coverage.report]
+# o mínimo vale igual na máquina e no CI: abaixo disso, o pytest falha
+fail_under = 70
