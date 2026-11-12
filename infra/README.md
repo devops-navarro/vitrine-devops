@@ -64,3 +64,15 @@ Um repositório por serviço (`vitrine/clientes`, `vitrine/catalogo`, `vitrine/p
 - **Scan na publicação** e **cifra KMS** (chave gerenciada pela AWS, sem custo de chave própria).
 - **Ciclo de vida**: imagens sem tag somem em 7 dias; das com tag, ficam as 20 mais recentes (no mínimo 5, para ter para onde voltar num rollback).
 - `force_delete = false`: um `destroy` não apaga repositório com imagens.
+
+### rds
+
+PostgreSQL 17 gerenciado, nas subnets privadas.
+
+- **Senha do administrador gerada pela AWS** e guardada no Secrets Manager (`manage_master_user_password`): não passa pelo código, pelo plan nem pelo state.
+- **TLS obrigatório** (`rds.force_ssl = 1`), disco cifrado, sem endereço público.
+- **Entrada só por security group** (os nós do EKS), porta 5432; nunca por faixa de IPs.
+- Consultas acima de 1 s vão para o log, exportado para o CloudWatch.
+- **Padrões seguros para produção**: Multi-AZ, proteção contra exclusão, snapshot final e 7 dias de backup. O ambiente de laboratório desliga Multi-AZ, proteção e snapshot de forma explícita, porque é criado e destruído a cada sessão.
+
+Os usuários de cada serviço (ADR 0001) não são criados aqui: o mesmo `infra/postgres/bootstrap.sql` roda contra o RDS como um Job no cluster (Fase 4), com a senha do administrador lida do Secrets Manager.
