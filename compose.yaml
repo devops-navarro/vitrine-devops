@@ -1,0 +1,142 @@
+# Ambiente completo: banco + 3 serviços. make up / make down.
+# Ordem de subida: banco saudável -> bootstrap -> migrations -> APIs.
+
+name: vitrine
+
+x-ambiente-comum: &ambiente-comum
+  POSTGRES_HOST: db
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
+  API_KEYS: ${API_KEYS:?defina API_KEYS no .env}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+# Pronto quando /ready responde 200, ou seja, quando o banco atende.
+x-healthcheck-api: &healthcheck-api
+  test:
+    - CMD
+    - python
+    - -c
+    - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2)"
+  interval: 5s
+  timeout: 3s
+  retries: 10
+  start_period: 5s
+
+x-migrations: &migrations
+  command: ["alembic", "upgrade", "head"]
+  restart: "no"
+  depends_on:
+    bootstrap:
+      condition: service_completed_successfully
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - dados:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  # Mesmo script do make db-bootstrap: um usuário por serviço (ADR 0001).
+  bootstrap:
+    image: postgres:17-alpine
+    command: ["psql", "-q", "-h", "db", "-d", "postgres", "-f", "/bootstrap/bootstrap.sql"]
+    environment:
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      CLIENTES_DB_PASSWORD: ${CLIENTES_DB_PASSWORD:?defina CLIENTES_DB_PASSWORD no .env}
+      CATALOGO_DB_PASSWORD: ${CATALOGO_DB_PASSWORD:?defina CATALOGO_DB_PASSWORD no .env}
+      PEDIDOS_DB_PASSWORD: ${PEDIDOS_DB_PASSWORD:?defina PEDIDOS_DB_PASSWORD no .env}
+    volumes:
+      - ./infra/postgres:/bootstrap:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  clientes-migrate:
+    <<: *migrations
+    image: vitrine/clientes:local
+    build: services/clientes
+    environment: &ambiente-clientes
+      <<: *ambiente-comum
+      POSTGRES_USER: clientes
+      POSTGRES_PASSWORD: ${CLIENTES_DB_PASSWORD}
+
+  catalogo-migrate:
+    <<: *migrations
+    image: vitrine/catalogo:local
+    build: services/catalogo
+    environment: &ambiente-catalogo
+      <<: *ambiente-comum
+      POSTGRES_USER: catalogo
+      POSTGRES_PASSWORD: ${CATALOGO_DB_PASSWORD}
+
+  pedidos-migrate:
+    <<: *migrations
+    image: vitrine/pedidos:local
+    build: services/pedidos
+    environment: &ambiente-pedidos
+      <<: *ambiente-comum
+      POSTGRES_USER: pedidos
+      POSTGRES_PASSWORD: ${PEDIDOS_DB_PASSWORD}
+      # dentro da rede do compose, cada serviço é achado pelo nome
+      CLIENTES_URL: http://clientes:8000
+      CLIENTES_API_KEY: ${CLIENTES_API_KEY:?defina CLIENTES_API_KEY no .env}
+      CATALOGO_URL: http://catalogo:8000
+      CATALOGO_API_KEY: ${CATALOGO_API_KEY:?defina CATALOGO_API_KEY no .env}
+      HTTP_TIMEOUT_SEGUNDOS: ${HTTP_TIMEOUT_SEGUNDOS:-3}
+
+  clientes:
+    image: vitrine/clientes:local
+    build: services/clientes
+    environment: *ambiente-clientes
+    ports:
+      - 127.0.0.1:8001:8000
+    healthcheck: *healthcheck-api
+    depends_on:
+      clientes-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  catalogo:
+    image: vitrine/catalogo:local
+    build: services/catalogo
+    environment: *ambiente-catalogo
+    ports:
+      - 127.0.0.1:8002:8000
+    healthcheck: *healthcheck-api
+    depends_on:
+      catalogo-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  pedidos:
+    image: vitrine/pedidos:local
+    build: services/pedidos
+    environment: *ambiente-pedidos
+    ports:
+      - 127.0.0.1:8003:8000
+    healthcheck: *healthcheck-api
+    depends_on:
+      pedidos-migrate:
+        condition: service_completed_successfully
+      # O pedidos sobe sem os vizinhos (responde 503), mas esperar por eles
+      # evita erros à toa logo na partida.
+      clientes:
+        condition: service_healthy
+      catalogo:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  dados:

@@ -74,20 +74,43 @@ Cada fase vira um [milestone](https://github.com/devops-navarro/vitrine-devops/m
 
 Precisa de Docker e [uv](https://docs.astral.sh/uv/). `make help` lista todos os comandos.
 
+**Tudo em containers**, com um comando:
+
 ```bash
 cp .env.example .env        # e trocar as senhas e chaves
+make up                     # banco + bootstrap + migrations + 3 serviços, espera ficarem saudáveis
+make smoke                  # confere: serviços prontos e um pedido de ponta a ponta
+make logs                   # logs JSON dos 3 serviços
+make down
+```
+
+APIs em `localhost:8001/docs` (clientes), `:8002/docs` (catalogo) e `:8003/docs` (pedidos).
+
+```mermaid
+flowchart LR
+    db[(db)] --> boot[bootstrap<br/>usuários e schemas]
+    boot --> m1[clientes-migrate] & m2[catalogo-migrate] & m3[pedidos-migrate]
+    m1 --> c[clientes :8001]
+    m2 --> k[catalogo :8002]
+    m3 --> p[pedidos :8003]
+    c & k --> p
+```
+
+**Serviço a serviço**, para desenvolver com recarga automática:
+
+```bash
 make db-up                  # PostgreSQL em container
 make db-bootstrap           # um usuário e um schema por serviço (ADR 0001)
 make clientes-migrate catalogo-migrate pedidos-migrate
-make clientes-run           # :8001/docs  (um terminal por serviço)
-make catalogo-run           # :8002/docs
-make pedidos-run            # :8003/docs
+make clientes-run           # um terminal por serviço
+make catalogo-run
+make pedidos-run
 
 make test                   # testes dos três, com cobertura mínima de 70%
 make migrations-check       # migrations sobem, descem e batem com o modelo
 ```
 
-O CI roda o mesmo `make test` e `make migrations-check` em cada PR, um job por serviço, contra um PostgreSQL de verdade.
+O CI roda em cada PR o `make test` e o `make migrations-check` (um job por serviço, contra PostgreSQL real) e o `make up` + `make smoke` a partir do `.env.example`.
 
 ## Rodando os checks localmente
 

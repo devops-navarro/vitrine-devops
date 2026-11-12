@@ -8,10 +8,30 @@ DB_IMAGE      := postgres:17-alpine
 .PHONY: help db-up db-down db-reset db-psql db-bootstrap clientes-migrate clientes-run clientes-test \
 	catalogo-migrate catalogo-run catalogo-test pedidos-migrate pedidos-run pedidos-test \
 	test migrations-check clientes-migrations-check catalogo-migrations-check \
-	pedidos-migrations-check
+	pedidos-migrations-check up down logs ps smoke
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
+
+# --- ambiente completo em containers (compose.yaml) ---
+
+up: ## Sobe banco + 3 serviços em containers e espera ficarem saudáveis
+	@test -f .env || (echo "Crie o .env a partir do .env.example" && exit 1)
+	docker compose up -d --build --wait
+
+down: ## Para o ambiente do compose (os dados ficam no volume)
+	docker compose down
+
+logs: ## Acompanha os logs dos 3 serviços
+	docker compose logs -f clientes catalogo pedidos
+
+ps: ## Situação de cada container do compose
+	docker compose ps -a
+
+smoke: ## Confere o ambiente no ar: serviços prontos e um pedido de ponta a ponta
+	uv run --no-project --python 3.12 scripts/smoke.py
+
+# --- desenvolvimento local, serviço a serviço ---
 
 # O container recebe só as variáveis do administrador, não as chaves dos serviços.
 db-up: ## Sobe o PostgreSQL local
