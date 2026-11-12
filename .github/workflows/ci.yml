@@ -121,3 +121,48 @@ jobs:
       - name: Desliga
         if: always()
         run: docker compose down --volumes
+
+  # Automação de infraestrutura com o mesmo rigor da aplicação.
+  ansible:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: lab
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.7"
+
+      - name: ansible-core e ansible-lint nas versões do laboratório
+        run: |
+          uv tool install ansible-core==2.21.6
+          uv tool install ansible-lint==26.11.0
+
+      - name: Coleções fixadas em requirements.yml
+        run: ansible-galaxy collection install -r requirements.yml -p .gerado/colecoes
+
+      - name: Sintaxe do playbook
+        # sem a VM, um inventário vazio basta para validar a estrutura
+        run: ansible-playbook site.yml --syntax-check -i localhost,
+
+      - name: ansible-lint (perfil production)
+        run: ansible-lint
+
+  # Os scripts precisam rodar no Linux, não só no macOS onde foram escritos.
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bats
+        run: sudo apt-get update -q && sudo apt-get install -y -q bats
+
+      - name: shellcheck
+        run: shellcheck --version | head -2 && make scripts-lint
+
+      - name: Testes bats
+        run: make scripts-test
