@@ -20,6 +20,18 @@ make catalogo-test      # testes
 
 Header `X-API-Key` com uma das chaves de `API_KEYS`. Sem ela, 401. `/health` e `/docs` ficam abertos.
 
+## Observabilidade
+
+| Rota | Para quê |
+| --- | --- |
+| `/health` | Liveness: o processo está de pé. Não consulta o banco, para o Kubernetes não reiniciar o pod quando o problema é o banco |
+| `/ready` | Readiness: `SELECT 1` no banco. 503 tira o pod do balanceamento até o banco voltar |
+| `/metrics` | Formato Prometheus: `http_requests_total` e `http_request_duration_seconds` por método, rota e status |
+
+As três ficam sem API key. Em produção, `/metrics` só é alcançável de dentro do cluster.
+
+Logs em JSON, uma linha por evento, com `request_id`. O id vem do header `X-Request-ID` (ou é gerado) e volta na resposta. Os rótulos das métricas usam o modelo da rota (`/clientes/{cliente_id}`), nunca o id, para não criar uma série por recurso. `LOG_LEVEL` controla o nível; os acessos a `/health`, `/ready` e `/metrics` só aparecem em `DEBUG`.
+
 ## Endpoints
 
 | Método | Rota | Sucesso | Erros |
@@ -45,6 +57,7 @@ app/
   deps.py       dependências compartilhadas pelas rotas
   models.py     tabelas
   schemas.py    entrada e saída da API
+  observabilidade.py  health, ready, métricas e logs JSON
   seguranca.py  API key
   routers/      rotas por recurso
   main.py       aplicação FastAPI

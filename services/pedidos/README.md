@@ -32,6 +32,20 @@ make pedidos-test                          # não depende dos outros no ar
 | `HTTP_TIMEOUT_SEGUNDOS` | Tempo máximo por chamada (padrão 3) |
 | `API_KEYS` | Chaves aceitas pelo próprio pedidos |
 
+## Observabilidade
+
+| Rota | Para quê |
+| --- | --- |
+| `/health` | Liveness: o processo está de pé. Não consulta o banco, para o Kubernetes não reiniciar o pod quando o problema é o banco |
+| `/ready` | Readiness: `SELECT 1` no banco. 503 tira o pod do balanceamento até o banco voltar |
+| `/metrics` | Formato Prometheus: `http_requests_total` e `http_request_duration_seconds` por método, rota e status |
+
+As três ficam sem API key. Em produção, `/metrics` só é alcançável de dentro do cluster.
+
+Logs em JSON, uma linha por evento, com `request_id`. O id vem do header `X-Request-ID` (ou é gerado) e volta na resposta. Os rótulos das métricas usam o modelo da rota (`/clientes/{cliente_id}`), nunca o id, para não criar uma série por recurso. `LOG_LEVEL` controla o nível; os acessos a `/health`, `/ready` e `/metrics` só aparecem em `DEBUG`.
+
+O pedidos também mede cada chamada aos vizinhos (`integracao_duracao_segundos` por serviço e resultado: `ok`, `nao_encontrado`, `timeout`, `fora_do_ar`, `http_5xx`...) e repassa o `X-Request-ID` para eles. Uma requisição deixa o mesmo id no log dos três serviços.
+
 ## Endpoints
 
 | Método | Rota | Sucesso | Erros |
