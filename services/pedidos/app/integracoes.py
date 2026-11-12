@@ -1,7 +1,23 @@
+import logging
+import time
 from typing import Any
 
 import httpx2
 from fastapi import status
+from prometheus_client import Histogram
+
+from app.observabilidade import request_id
+
+logger = logging.getLogger("vitrine.pedidos.integracoes")
+
+# Quanto tempo cada vizinho leva e como terminou. É o que mostra, no Grafana,
+# se a lentidão do pedidos vem dele mesmo ou de clientes/catalogo.
+DURACAO_CHAMADA = Histogram(
+    "integracao_duracao_segundos",
+    "Duração das chamadas HTTP a outros serviços",
+    ["servico", "resultado"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5),
+)
 
 
 class FalhaIntegracao(Exception):
@@ -33,25 +49,50 @@ class ServicoExterno:
 
     def buscar(self, caminho: str) -> dict[str, Any] | None:
         """GET que devolve o JSON, None para 404, ou levanta FalhaIntegracao."""
+        inicio = time.perf_counter()
+        resultado = "erro"
         try:
-            resposta = self._http.get(caminho)
+            resposta = self._get(caminho)
+            if resposta.status_code == status.HTTP_200_OK:
+                resultado = "ok"
+                return resposta.json()
+            if resposta.status_code == status.HTTP_404_NOT_FOUND:
+                resultado = "nao_encontrado"
+                return None
+            resultado = f"http_{resposta.status_code}"
+            if resposta.status_code >= 500:
+                raise self._falha(
+                    f"respondeu {resposta.status_code}", status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+            # 401 ou 422 aqui é erro nosso (chave ou chamada errada), não do usuário
+            raise self._falha(f"respondeu {resposta.status_code}", status.HTTP_502_BAD_GATEWAY)
         except httpx2.TimeoutException as erro:
+            resultado = "timeout"
             raise self._falha(
                 "não respondeu a tempo", status.HTTP_503_SERVICE_UNAVAILABLE
             ) from erro
         except httpx2.TransportError as erro:
+            resultado = "fora_do_ar"
             raise self._falha("está fora do ar", status.HTTP_503_SERVICE_UNAVAILABLE) from erro
+        finally:
+            duracao = time.perf_counter() - inicio
+            DURACAO_CHAMADA.labels(self.nome, resultado).observe(duracao)
+            if resultado not in ("ok", "nao_encontrado"):
+                logger.warning(
+                    "chamada a %s falhou: %s",
+                    self.nome,
+                    resultado,
+                    extra={
+                        "upstream": self.nome,
+                        "result": resultado,
+                        "duration_ms": round(duracao * 1000, 1),
+                    },
+                )
 
-        if resposta.status_code == status.HTTP_404_NOT_FOUND:
-            return None
-        if resposta.status_code >= 500:
-            raise self._falha(
-                f"respondeu {resposta.status_code}", status.HTTP_503_SERVICE_UNAVAILABLE
-            )
-        if resposta.status_code != status.HTTP_200_OK:
-            # 401 ou 422 aqui é erro nosso (chave ou chamada errada), não do usuário
-            raise self._falha(f"respondeu {resposta.status_code}", status.HTTP_502_BAD_GATEWAY)
-        return resposta.json()
+    def _get(self, caminho: str) -> httpx2.Response:
+        # repassa o request id para o log do outro serviço ter o mesmo id
+        rid = request_id.get()
+        return self._http.get(caminho, headers={"X-Request-ID": rid} if rid else None)
 
     def fechar(self) -> None:
         self._http.close()
