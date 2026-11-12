@@ -1,0 +1,6 @@
+---
+# Portas abertas no firewall. Todo o resto de entrada é negado.
+web_portas_abertas:
+  - { porta: "22", comentario: ssh }
+  - { porta: "80", comentario: http }
+web_logs_dias: 7

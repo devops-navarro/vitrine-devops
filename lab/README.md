@@ -54,3 +54,14 @@ Acesso como `deploy`:
 ```bash
 ssh -i lab/.gerado/deploy_ed25519 -o UserKnownHostsFile=lab/.gerado/known_hosts deploy@<ip da VM>
 ```
+
+### web
+
+| O que faz | Detalhe |
+| --- | --- |
+| nginx | Página própria em `/var/www/vitrine`, site padrão do pacote desativado, `server_tokens off` e cabeçalhos de segurança. Ligado agora e no boot (`enabled` + `started`) |
+| Validação | Mudança de configuração avisa dois handlers em ordem: `nginx -t` e depois `reload`. Com erro, o reload não acontece e a versão antiga segue no ar |
+| Firewall (ufw) | Libera 22 e 80, nega toda outra entrada e liga, nesta ordem, para o Ansible não perder o próprio SSH |
+| Logs | logrotate diário, 7 cópias, compressão a partir da segunda (`delaycompress`) |
+
+Página: `http://<ip da VM>/`.

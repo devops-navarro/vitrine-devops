@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+/var/log/nginx/*.log {
+    daily
+    rotate {{ web_logs_dias }}
+    missingok
+    notifempty
+    compress
+    # o arquivo de ontem só é comprimido no dia seguinte: o nginx pode ainda
+    # estar escrevendo nele até receber o sinal para reabrir os logs
+    delaycompress
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        invoke-rc.d nginx rotate >/dev/null 2>&1 || true
+    endscript
+}
