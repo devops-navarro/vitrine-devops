@@ -22,6 +22,11 @@ make clientes-test      # testes
 | `POST` | `/clientes` | 201 + `Location` | 409, 422 |
 | `PUT` | `/clientes/{id}` | 200 | 404, 409, 422 |
 | `DELETE` | `/clientes/{id}` | 204 | 404 |
+| `GET` | `/clientes/{id}/enderecos` | 200 | 404 |
+| `GET` | `/clientes/{id}/enderecos/{endereco_id}` | 200 | 404 |
+| `POST` | `/clientes/{id}/enderecos` | 201 + `Location` | 404, 422 |
+| `PUT` | `/clientes/{id}/enderecos/{endereco_id}` | 200 | 404, 422 |
+| `DELETE` | `/clientes/{id}/enderecos/{endereco_id}` | 204 | 404 |
 
 A listagem é paginada e limitada a 100 itens por chamada. O `PUT` substitui o recurso inteiro: campo opcional omitido volta a ser nulo.
 
@@ -30,12 +35,20 @@ Validação:
 - E-mail é validado e gravado em minúsculas.
 - CPF ou e-mail já cadastrado devolve 409. Quem garante a unicidade é o banco; a API traduz a constraint violada.
 
+Endereços:
+- Um cliente tem zero ou vários. Apagar o cliente apaga os endereços (`ON DELETE CASCADE`).
+- No máximo um é o principal, garantido por índice único parcial (`WHERE principal`). O primeiro endereço vira principal; marcar outro como principal desmarca o anterior.
+- CEP aceita máscara e é gravado com 8 dígitos. UF só aceita as 27 siglas.
+- Um endereço só é acessível pela rota do próprio cliente: o id de outro cliente devolve 404.
+
 ## Estrutura
 
 ```
 app/
   config.py   configuração por variável de ambiente (pydantic-settings)
   db.py       engine, sessão e schema do serviço
+  deps.py     dependências compartilhadas pelas rotas
+  validacao.py  CPF e CEP
   models.py   tabelas
   schemas.py  formato de entrada e saída da API (Pydantic)
   routers/    rotas por recurso
