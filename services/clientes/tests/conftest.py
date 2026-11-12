@@ -24,26 +24,25 @@ from app.main import app  # noqa: E402
 SERVICO = Path(__file__).resolve().parents[1]
 
 
-def _criar_banco_de_teste() -> None:
+def _conferir_banco_de_teste() -> None:
+    # O banco de teste e os usuários vêm do make db-bootstrap; o usuário do
+    # serviço não tem permissão para criar banco.
     cfg = get_settings()
-    with psycopg.connect(
-        host=cfg.postgres_host,
-        port=cfg.postgres_port,
-        user=cfg.postgres_user,
-        password=cfg.postgres_password.get_secret_value(),
-        dbname="postgres",
-        autocommit=True,
-    ) as conn:
-        existe = conn.execute(
-            "SELECT 1 FROM pg_database WHERE datname = %s", (cfg.postgres_db,)
-        ).fetchone()
-        if not existe:
-            conn.execute(f'CREATE DATABASE "{cfg.postgres_db}"')
+    try:
+        psycopg.connect(
+            host=cfg.postgres_host,
+            port=cfg.postgres_port,
+            user=cfg.postgres_user,
+            password=cfg.postgres_password.get_secret_value(),
+            dbname=cfg.postgres_db,
+        ).close()
+    except psycopg.OperationalError as erro:
+        pytest.exit(f"Sem acesso ao banco {cfg.postgres_db}. Rode make db-bootstrap. ({erro})")
 
 
 @pytest.fixture(scope="session", autouse=True)
 def banco() -> None:
-    _criar_banco_de_teste()
+    _conferir_banco_de_teste()
     command.upgrade(Config(str(SERVICO / "alembic.ini")), "head")
 
 

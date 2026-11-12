@@ -20,8 +20,13 @@ def include_name(name, type_, parent_names):
 
 def run_migrations_online() -> None:
     with engine.connect() as connection:
-        connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}"))
-        connection.commit()
+        # O schema é criado pela infraestrutura (infra/postgres), não pelo
+        # serviço: o usuário dele não tem permissão para criar schemas.
+        existe = connection.scalar(
+            text("SELECT 1 FROM pg_namespace WHERE nspname = :schema"), {"schema": SCHEMA}
+        )
+        if not existe:
+            raise SystemExit(f"Schema '{SCHEMA}' não existe. Rode make db-bootstrap.")
         context.configure(
             connection=connection,
             target_metadata=Base.metadata,
