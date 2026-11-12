@@ -1,0 +1,51 @@
+---
+- name: Confere que o disco é o extra, antes de mexer nele
+  vars:
+    nome: "{{ disco_dispositivo | basename }}"
+    info: "{{ ansible_facts['devices'][nome] | default({}) }}"
+    tamanho_gib: "{{ ((info['sectors'] | default(0) | int) * (info['sectorsize'] | default(512) | int) / 1024**3) | round | int }}"
+    disco_do_sistema: "{{ (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | first)['device'] }}"
+  ansible.builtin.assert:
+    that:
+      - info | length > 0
+      - tamanho_gib | int == disco_tamanho_gib
+      - not disco_do_sistema.startswith(disco_dispositivo)
+    fail_msg: >-
+      {{ disco_dispositivo }} não parece ser o disco extra de {{ disco_tamanho_gib }} GiB
+      (achei {{ tamanho_gib }} GiB; sistema em {{ disco_do_sistema }}). Nada foi alterado.
+    quiet: true
+
+- name: Cria a partição
+  community.general.parted:
+    device: "{{ disco_dispositivo }}"
+    label: gpt
+    number: 1
+    state: present
+    part_end: 100%
+
+- name: Cria o sistema de arquivos ext4
+  # não formata de novo se já existe ext4; se houver outro tipo, falha em vez de apagar
+  community.general.filesystem:
+    dev: "{{ disco_dispositivo }}1"
+    fstype: ext4
+
+- name: Lê o UUID do sistema de arquivos
+  ansible.builtin.command: blkid -s UUID -o value {{ disco_dispositivo }}1
+  register: disco_uuid
+  changed_when: false
+
+- name: Monta pelo UUID e registra no fstab
+  ansible.posix.mount:
+    path: "{{ disco_ponto_montagem }}"
+    src: UUID={{ disco_uuid.stdout }}
+    fstype: ext4
+    # nofail: se o disco sumir, o servidor ainda liga, em vez de travar no boot
+    opts: defaults,nofail
+    state: mounted
+
+- name: Ajusta o dono do ponto de montagem
+  ansible.builtin.file:
+    path: "{{ disco_ponto_montagem }}"
+    owner: "{{ disco_dono }}"
+    group: "{{ disco_dono }}"
+    mode: "0755"
