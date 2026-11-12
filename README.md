@@ -6,7 +6,7 @@
 
 [![ci](https://github.com/devops-navarro/vitrine-devops/actions/workflows/ci.yml/badge.svg)](https://github.com/devops-navarro/vitrine-devops/actions/workflows/ci.yml)
 
-**Status:** Fase 1 concluída ([v0.1.0](docs/evidencias/fase-1.md)) · Fase 2 a seguir
+**Status:** Fases 1 e 2 concluídas ([v0.1.0](docs/evidencias/fase-1.md), [v0.2.0](docs/evidencias/fase-2.md)) · Fase 3 a seguir
 
 ## Arquitetura alvo · Target architecture
 
@@ -52,7 +52,7 @@ A escolha da stack segue o que as vagas DevOps remotas pedem: veja [ADR 0000](do
 Cada fase vira um [milestone](https://github.com/devops-navarro/vitrine-devops/milestones) com suas issues quando começa. As pastas do repositório nascem junto com o que é construído.
 
 - [x] **Fase 1** · APIs FastAPI + PostgreSQL (`services/`, `scripts/`) · [evidências](docs/evidencias/fase-1.md)
-- [ ] **Fase 2** · Linux, redes e automação com Ansible (`lab/`, `scripts/`)
+- [x] **Fase 2** · Linux, redes e automação com Ansible (`lab/`, `scripts/`) · [evidências](docs/evidencias/fase-2.md)
 - [ ] **Fase 3** · AWS com Terraform (`infra/`)
 - [ ] **Fase 4** · Containers, Kubernetes, CI/CD e GitOps (`deploy/`, `.github/`)
 - [ ] **Fase 5** · Certificação AWS e inglês (em paralelo às Fases 3 e 4)
@@ -114,6 +114,15 @@ make migrations-check       # migrations sobem, descem e batem com o modelo
 ```
 
 O CI roda em cada PR o `make test` e o `make migrations-check` (um job por serviço, contra PostgreSQL real) e o `make up` + `make smoke` + `make seed` (duas vezes, a segunda sem poder mudar nada) a partir do `.env.example`.
+
+## Laboratório Linux
+
+Uma VM Ubuntu configurada só pelo Ansible e monitorada com Prometheus e Grafana: veja [lab/README.md](lab/README.md).
+
+```bash
+make lab                    # VM + Ansible + monitoração, do zero em ~3,5 min
+make lab-idempotencia       # roda de novo e falha se algo mudar
+```
 
 ## Rodando os checks localmente
 
