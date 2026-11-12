@@ -166,3 +166,32 @@ jobs:
 
       - name: Testes bats
         run: make scripts-test
+
+  # Infraestrutura validada sem conta AWS: nenhum segredo da AWS no CI.
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.17.2"
+          terraform_wrapper: false
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.66.0
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.7"
+
+      - name: Checkov
+        run: uv tool install checkov==3.4.5
+
+      - name: fmt, validate, tflint, Checkov e terraform test
+        env:
+          # o tflint baixa o plugin AWS do GitHub; com token, sem limite de chamadas
+          GITHUB_TOKEN: ${{ github.token }}
+        run: make tf-check

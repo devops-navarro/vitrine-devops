@@ -10,7 +10,8 @@ DB_IMAGE      := postgres:17-alpine
 	test migrations-check clientes-migrations-check catalogo-migrations-check \
 	pedidos-migrations-check up down logs ps smoke seed \
 	lab-deps lab-vm lab-ping lab-ssh lab-destroy lab lab-play lab-idempotencia lab-lint \
-	lab-monitoracao lab-monitoracao-down scripts-lint scripts-test
+	lab-monitoracao lab-monitoracao-down scripts-lint scripts-test \
+	tf-fmt tf-validate tf-lint tf-sec tf-test tf-check
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -182,3 +183,33 @@ scripts-lint: ## shellcheck nos scripts Bash
 
 scripts-test: ## Testes dos scripts Bash (bats)
 	bats scripts/testes/
+
+# --- Terraform (Fase 3): tudo roda sem conta AWS ---
+
+TF_RAIZES := $(sort $(wildcard infra/modules/*) $(wildcard infra/envs/*))
+TF_MODULOS_COM_TESTE := $(sort $(patsubst %/tests,%,$(wildcard infra/modules/*/tests)))
+
+tf-fmt: ## terraform fmt (só confere, não altera)
+	terraform fmt -check -recursive -diff infra
+
+tf-validate: ## terraform validate em cada módulo e ambiente, sem backend
+	@for d in $(TF_RAIZES); do \
+		echo "== $$d"; \
+		terraform -chdir=$$d init -backend=false -input=false >/dev/null && \
+		terraform -chdir=$$d validate -no-color || exit 1; \
+	done
+
+tf-lint: ## tflint com o plugin AWS
+	cd infra && tflint --init && tflint --recursive --config "$$PWD/.tflint.hcl"
+
+tf-sec: ## Checkov: configurações inseguras
+	checkov -d infra --framework terraform --quiet --compact
+
+tf-test: ## terraform test com provider simulado (sem credenciais)
+	@for d in $(TF_MODULOS_COM_TESTE); do \
+		echo "== $$d"; \
+		terraform -chdir=$$d init -backend=false -input=false >/dev/null && \
+		terraform -chdir=$$d test -no-color || exit 1; \
+	done
+
+tf-check: tf-fmt tf-validate tf-lint tf-sec tf-test ## Todos os checks de Terraform
