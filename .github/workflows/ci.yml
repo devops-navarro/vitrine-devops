@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# um push novo no mesmo PR cancela a execução anterior, que já ficou velha
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
@@ -19,3 +24,64 @@ jobs:
         with:
           python-version: "3.12"
       - uses: pre-commit/action@v3.0.1
+
+  testes:
+    name: testes (${{ matrix.servico }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        servico: [clientes, catalogo, pedidos]
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: vitrine
+          POSTGRES_PASSWORD: ci-admin
+          POSTGRES_DB: vitrine
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vitrine"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    # Senhas de um banco descartável que só existe durante o job.
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: vitrine
+      POSTGRES_USER: vitrine
+      POSTGRES_PASSWORD: ci-admin
+      CLIENTES_DB_PASSWORD: ci-clientes
+      CATALOGO_DB_PASSWORD: ci-catalogo
+      PEDIDOS_DB_PASSWORD: ci-pedidos
+      API_KEYS: chave-do-ci-com-mais-de-trinta-e-dois-caracteres
+      CLIENTES_URL: http://localhost:8001
+      CLIENTES_API_KEY: chave-do-ci-com-mais-de-trinta-e-dois-caracteres
+      CATALOGO_URL: http://localhost:8002
+      CATALOGO_API_KEY: chave-do-ci-com-mais-de-trinta-e-dois-caracteres
+      # falha se o uv.lock não bater com o pyproject.toml
+      UV_LOCKED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.7"
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: services/${{ matrix.servico }}/uv.lock
+
+      - name: Usuários e schemas no banco
+        run: make db-bootstrap DB_CONTAINER=${{ job.services.postgres.id }}
+
+      - name: Testes com cobertura mínima de 70%
+        run: make ${{ matrix.servico }}-test
+
+      - name: Migrations sobem, descem e batem com o modelo
+        run: make ${{ matrix.servico }}-migrations-check
