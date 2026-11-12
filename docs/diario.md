@@ -15,3 +15,5 @@ O que fiz, o que travou e como resolvi.
 - Testei a integração do `pedidos` derrubando e travando o catálogo com os três serviços no ar: 503 com `Retry-After`, e no caso travado, resposta no tempo do timeout (3 s).
 - O que travou: ao separar um usuário por serviço no banco, as migrations pararam com `permission denied for database`. O `CREATE SCHEMA IF NOT EXISTS` do Alembic exige permissão de criar mesmo quando o schema existe. Criar schema virou tarefa do `make db-bootstrap`, e o serviço só confere se ele existe.
 - Achado de segurança: o erro de configuração do pydantic imprimia a senha do banco e a API key no log. Corrigido com `hide_input_in_errors` e teste.
+- Fase 1 fechada em `v0.1.0`. O que mais ensinou: os bugs que só apareceram com banco vazio, usuário restrito ou rede de verdade. Teste em ambiente parecido com produção paga o custo.
+- Próximo: Fase 2, Linux, redes e automação.
