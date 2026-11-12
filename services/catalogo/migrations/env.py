@@ -1,3 +1,4 @@
+import logging
 from logging.config import fileConfig
 
 from alembic import context
@@ -7,7 +8,10 @@ from app import models  # noqa: F401  registra as tabelas no metadata
 from app.db import SCHEMA, Base, engine
 
 config = context.config
-if config.config_file_name is not None:
+# Só configura o logging quando o Alembic roda sozinho (CLI). Dentro de um
+# processo que já tem logging (os testes), fileConfig trocaria os handlers e
+# desligaria em silêncio todos os loggers existentes.
+if config.config_file_name is not None and not logging.getLogger().handlers:
     fileConfig(config.config_file_name)
 
 
