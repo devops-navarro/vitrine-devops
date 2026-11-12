@@ -31,7 +31,6 @@ done
 # Proteções: um caminho vazio ou a raiz, com --aplicar, seria um desastre.
 [[ -n "$dir" ]] || { echo "diretório vazio" >&2; exit 2; }
 [[ -d "$dir" ]] || { echo "não é um diretório: $dir" >&2; exit 1; }
-ls $dir >/dev/null
 real="$(cd "$dir" && pwd -P)"
 [[ "$real" != "/" ]] || { echo "recuso limpar a raiz do sistema" >&2; exit 2; }
 
