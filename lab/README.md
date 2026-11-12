@@ -33,7 +33,9 @@ make lab-destroy   # apaga a VM, o disco extra e os arquivos gerados
 | Pastas | Nenhuma pasta do Mac montada | Servidor não enxerga arquivos pessoais |
 | Disco extra | 2 GB cru, sem formatar | Partição e sistema de arquivos são trabalho do Ansible |
 
-O inventário (`.gerado/inventario.ini`) é gerado por `inventario.sh` a partir da VM: IP da interface `lima0`, usuário padrão da imagem e a chave que o Lima criou. O SSH usa um `known_hosts` próprio do laboratório com `accept-new`, apagado junto com a VM: aceita a chave de uma VM nova e recusa se ela mudar depois.
+O inventário (`.gerado/inventario.ini`) é gerado por `inventario.sh` a partir da VM: IP da interface `lima0`, usuário padrão da imagem e a chave que o Lima criou.
+
+O `known_hosts` do laboratório também é escrito pelo `inventario.sh`, com as chaves do host lidas pelo canal local do Lima (`limactl shell`), não pela rede da VM. Assim o SSH do Ansible usa `StrictHostKeyChecking=yes`: só aceita a chave exata. Ele é refeito a cada `make lab-vm` porque o Lima gera um `instance-id` novo a cada partida e o cloud-init troca as chaves do host.
 
 ## Roles
 
@@ -65,3 +67,13 @@ ssh -i lab/.gerado/deploy_ed25519 -o UserKnownHostsFile=lab/.gerado/known_hosts 
 | Logs | logrotate diário, 7 cópias, compressão a partir da segunda (`delaycompress`) |
 
 Página: `http://<ip da VM>/`.
+
+### disco
+
+| O que faz | Detalhe |
+| --- | --- |
+| Trava | Antes de qualquer mudança, confere que o dispositivo tem o tamanho esperado (2 GiB) e não é o disco do sistema. Se não bater, para sem alterar nada |
+| Partição e ext4 | GPT com uma partição; o ext4 não é recriado se já existe, e outro tipo de sistema de arquivos faz a tarefa falhar em vez de apagar |
+| Montagem | `/usr/local/navarro` pelo **UUID** no `/etc/fstab`, com `nofail` |
+
+Pelo UUID porque o nome do dispositivo (`/dev/vdb`) pode mudar entre boots; o UUID do sistema de arquivos não muda. O `nofail` faz o servidor ligar mesmo se o disco sumir, em vez de parar no boot.

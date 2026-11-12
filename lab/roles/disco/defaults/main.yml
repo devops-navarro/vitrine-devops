@@ -1,0 +1,7 @@
+---
+# Nome do disco pode mudar entre boots (vdb, vdc...). Ele só é usado para
+# particionar, depois de conferido; a montagem é pelo UUID, que não muda.
+disco_dispositivo: /dev/vdb
+disco_tamanho_gib: 2
+disco_ponto_montagem: /usr/local/navarro
+disco_dono: deploy
