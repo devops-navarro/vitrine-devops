@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from app.routers import clientes
+
 app = FastAPI(
     title="Vitrine · clientes",
     version="0.1.0",
@@ -10,3 +12,6 @@ app = FastAPI(
 @app.get("/health", tags=["infra"])
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+app.include_router(clientes.router)
