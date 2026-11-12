@@ -1,0 +1,4 @@
+# {{ ansible_managed }}
+# systemd: estado dos serviços como métrica (node_systemd_unit_state), para o
+# painel mostrar se o nginx está de pé.
+ARGS="--collector.systemd --collector.systemd.unit-include={{ monitoracao_servicos }}"

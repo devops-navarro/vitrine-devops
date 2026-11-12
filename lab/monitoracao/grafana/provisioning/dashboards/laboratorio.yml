@@ -1,0 +1,9 @@
+apiVersion: 1
+providers:
+  - name: laboratorio
+    folder: Laboratório
+    type: file
+    # o dashboard é código: mudança pela tela não sobrevive, tem que vir por PR
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

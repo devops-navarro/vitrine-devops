@@ -77,3 +77,23 @@ Página: `http://<ip da VM>/`.
 | Montagem | `/usr/local/navarro` pelo **UUID** no `/etc/fstab`, com `nofail` |
 
 Pelo UUID porque o nome do dispositivo (`/dev/vdb`) pode mudar entre boots; o UUID do sistema de arquivos não muda. O `nofail` faz o servidor ligar mesmo se o disco sumir, em vez de parar no boot.
+
+### monitoracao
+
+Na VM, a role instala o `prometheus-node-exporter` (com o coletor de `systemd` para o estado do nginx e do ssh) e libera a porta 9100 **só para o Mac** (`192.168.64.1`, de onde vêm as coletas).
+
+No Mac, `lab/monitoracao/compose.yaml` sobe:
+
+| Serviço | O que faz |
+| --- | --- |
+| Prometheus `:9090` | Coleta a VM. Os alvos vêm de `.gerado/alvos/*.json`, escritos pelo `inventario.sh`, porque o IP da VM muda quando ela é recriada |
+| blackbox-exporter | Teste sintético: acessa a página como um usuário e só considera sucesso com status 200 **e** o texto "Hello World" |
+| Grafana `:3000` | Fonte de dados e dashboard provisionados por arquivo. Mudança pela tela não é salva: o dashboard é código |
+
+Dashboard "Laboratório · VM vitrine-lab": servidor, página e nginx (UP/DOWN), tempo de resposta, CPU, memória, disco por ponto de montagem, inodes e swap.
+
+```bash
+make lab-monitoracao        # já incluído no make lab
+open http://localhost:3000  # usuário admin, senha GRAFANA_ADMIN_PASSWORD do .env
+make lab-monitoracao-down
+```
