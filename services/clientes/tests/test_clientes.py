@@ -33,7 +33,11 @@ def test_criar_remove_espacos_das_pontas(client):
     "alteracao",
     [
         {"cpf": "1234567890"},  # 10 dígitos
-        {"cpf": "529.982.247-25"},  # com máscara
+        {"cpf": "52998224726"},  # dígito verificador errado
+        {"cpf": "11111111111"},
+        {"cpf": 52998224725},  # número em vez de texto
+        {"email": "ana.exemplo.com"},
+        {"email": "ana@"},
         {"nome": ""},
         {"nome": "x" * 151},
         {"telefone": "9" * 21},
@@ -43,6 +47,50 @@ def test_criar_com_dado_invalido_devolve_422(client, alteracao):
     resposta = client.post("/clientes", json={**ANA, **alteracao})
 
     assert resposta.status_code == 422
+
+
+def test_criar_normaliza_cpf_e_email(client):
+    corpo = criar(client, {**ANA, "cpf": "529.982.247-25", "email": "Ana@Exemplo.COM"})
+
+    assert corpo["cpf"] == "52998224725"
+    assert corpo["email"] == "ana@exemplo.com"
+
+
+def test_cpf_invalido_devolve_mensagem_clara(client):
+    resposta = client.post("/clientes", json={**ANA, "cpf": "52998224726"})
+
+    erro = resposta.json()["detail"][0]
+    assert erro["loc"] == ["body", "cpf"]
+    assert "dígito verificador" in erro["msg"]
+
+
+def test_cpf_duplicado_devolve_409(client):
+    criar(client, ANA)
+
+    resposta = client.post("/clientes", json={**BRUNO, "cpf": ANA["cpf"]})
+
+    assert resposta.status_code == 409
+    assert resposta.json() == {"detail": "CPF já cadastrado"}
+
+
+def test_email_duplicado_ignora_maiusculas_e_devolve_409(client):
+    criar(client, ANA)
+
+    resposta = client.post("/clientes", json={**BRUNO, "email": "ANA@exemplo.com"})
+
+    assert resposta.status_code == 409
+    assert resposta.json() == {"detail": "E-mail já cadastrado"}
+
+
+def test_atualizar_para_cpf_de_outro_cliente_devolve_409(client):
+    criar(client, ANA)
+    bruno = criar(client, BRUNO)
+
+    resposta = client.put(f"/clientes/{bruno['id']}", json={**BRUNO, "cpf": ANA["cpf"]})
+
+    assert resposta.status_code == 409
+    # o conflito não pode deixar a sessão quebrada para a próxima operação
+    assert client.get(f"/clientes/{bruno['id']}").json()["cpf"] == BRUNO["cpf"]
 
 
 def test_criar_sem_campo_obrigatorio_devolve_422(client):
