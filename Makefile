@@ -5,7 +5,8 @@ POSTGRES_PORT ?= 5432
 DB_CONTAINER  := vitrine-db
 DB_IMAGE      := postgres:17-alpine
 
-.PHONY: help db-up db-down db-reset db-psql clientes-migrate clientes-run clientes-test
+.PHONY: help db-up db-down db-reset db-psql clientes-migrate clientes-run clientes-test \
+	catalogo-migrate catalogo-run catalogo-test
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-18s %s\n", $$1, $$2}'
@@ -35,3 +36,12 @@ clientes-run: ## Sobe a API de clientes em http://localhost:8001/docs
 
 clientes-test: ## Roda os testes do serviço clientes
 	cd services/clientes && uv run pytest -q
+
+catalogo-migrate: ## Aplica as migrations do serviço catalogo
+	cd services/catalogo && uv run alembic upgrade head
+
+catalogo-run: ## Sobe a API de catálogo em http://localhost:8002/docs
+	cd services/catalogo && uv run uvicorn app.main:app --reload --port 8002
+
+catalogo-test: ## Roda os testes do serviço catalogo
+	cd services/catalogo && uv run pytest -q
