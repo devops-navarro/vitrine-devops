@@ -28,6 +28,9 @@ def listar(
     ativo: Annotated[
         bool | None, Query(description="Filtra por situação. Vazio traz todos.")
     ] = None,
+    sku: Annotated[
+        str | None, Query(description="Busca pelo SKU, sem diferenciar maiúsculas.")
+    ] = None,
     # limite máximo para uma chamada nunca trazer a tabela inteira
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -35,6 +38,8 @@ def listar(
     consulta = select(Produto).order_by(Produto.id).limit(limit).offset(offset)
     if ativo is not None:
         consulta = consulta.where(Produto.ativo == ativo)
+    if sku is not None:
+        consulta = consulta.where(Produto.sku == sku.strip().upper())
     return list(session.scalars(consulta))
 
 

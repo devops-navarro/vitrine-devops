@@ -116,3 +116,13 @@ def test_listar_filtra_por_situacao_e_pagina(client):
 @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
 def test_paginacao_invalida_devolve_422(client, params):
     assert client.get("/produtos", params=params).status_code == 422
+
+
+def test_busca_por_sku_sem_diferenciar_maiusculas(client):
+    camiseta = criar(client, CAMISETA)
+    criar(client, CANECA)
+
+    resposta = client.get("/produtos", params={"sku": " cam-branca-m "})
+
+    assert [p["id"] for p in resposta.json()] == [camiseta["id"]]
+    assert client.get("/produtos", params={"sku": "NAO-EXISTE"}).json() == []
