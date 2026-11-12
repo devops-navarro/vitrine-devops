@@ -108,6 +108,12 @@ jobs:
       - name: Smoke test
         run: make smoke
 
+      - name: Seed
+        run: make seed
+
+      - name: Seed de novo não muda nada (idempotência)
+        run: make seed ARGS=--sem-mudancas
+
       - name: Logs em caso de falha
         if: failure()
         run: docker compose ps -a && docker compose logs --no-color
