@@ -9,7 +9,7 @@ DB_IMAGE      := postgres:17-alpine
 	catalogo-migrate catalogo-run catalogo-test pedidos-migrate pedidos-run pedidos-test \
 	test migrations-check clientes-migrations-check catalogo-migrations-check \
 	pedidos-migrations-check up down logs ps smoke seed \
-	lab-deps lab-vm lab-ping lab-ssh lab-destroy
+	lab-deps lab-vm lab-ping lab-ssh lab-destroy lab lab-play lab-idempotencia lab-lint
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -135,6 +135,24 @@ lab-vm: ## Cria e liga a VM do laboratório (Ubuntu, Lima) e gera o inventário
 		*) limactl start --name=$(LAB_VM) --tty=false lab/vm.yaml ;; \
 	esac
 	lab/inventario.sh
+	@# chave do usuário deploy: gerada uma vez no Mac, sobrevive à recriação da VM
+	@test -f lab/.gerado/deploy_ed25519 \
+		|| ssh-keygen -q -t ed25519 -N "" -C deploy@vitrine-lab -f lab/.gerado/deploy_ed25519
+
+lab: lab-deps lab-vm lab-play ## Cria a VM e configura tudo pelo Ansible
+
+lab-play: ## Roda o playbook do laboratório na VM
+	cd lab && ansible-playbook site.yml
+
+# Roda o playbook de novo e falha se a segunda execução mudar alguma coisa.
+lab-idempotencia: ## Confere que rodar o playbook de novo não muda nada
+	cd lab && ansible-playbook site.yml | tee .gerado/segunda-execucao.log
+	@grep -qE 'changed=0 .*failed=0' lab/.gerado/segunda-execucao.log \
+		&& echo "idempotente: nenhuma mudança na segunda execução" \
+		|| { echo "NÃO idempotente: a segunda execução mudou algo"; exit 1; }
+
+lab-lint: ## ansible-lint no perfil production
+	cd lab && ansible-lint
 
 lab-ping: ## Confere se o Ansible alcança a VM
 	cd lab && ansible all -m ping

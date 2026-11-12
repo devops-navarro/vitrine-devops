@@ -1,0 +1,64 @@
+---
+- name: Atualiza a lista de pacotes
+  ansible.builtin.apt:
+    update_cache: true
+    # não consulta os repositórios de novo se já consultou há menos de 1 hora
+    cache_valid_time: 3600
+  # baixar a lista de pacotes não altera o servidor; "changed" fica para mudança real
+  changed_when: false
+
+- name: Atualiza os pacotes instalados
+  ansible.builtin.apt:
+    upgrade: dist
+
+- name: Instala pacotes de base
+  ansible.builtin.apt:
+    name: "{{ base_pacotes }}"
+    state: present
+
+- name: Ativa as atualizações de segurança automáticas
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Cria o usuário {{ base_usuario }}
+  ansible.builtin.user:
+    name: "{{ base_usuario }}"
+    shell: /bin/bash
+    create_home: true
+    # sem senha: o acesso é só por chave
+    password: "!"
+    update_password: on_create
+
+- name: Autoriza a chave do {{ base_usuario }}
+  ansible.posix.authorized_key:
+    user: "{{ base_usuario }}"
+    key: "{{ base_chave_publica }}"
+    # remove qualquer outra chave que alguém tenha colocado à mão
+    exclusive: true
+
+- name: Dá sudo ao {{ base_usuario }}
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/{{ base_usuario }}
+    content: "{{ base_usuario }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    # um sudoers com erro tranca o sudo de todo mundo: valida antes de gravar
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Endurece o SSH
+  ansible.builtin.template:
+    src: 01-vitrine.conf.j2
+    dest: /etc/ssh/sshd_config.d/01-vitrine.conf
+    owner: root
+    group: root
+    mode: "0644"
+    # um sshd_config inválido derruba o acesso à máquina: valida antes de gravar
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Recarrega o SSH

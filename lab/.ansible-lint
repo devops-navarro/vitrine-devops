@@ -1,0 +1,5 @@
+---
+# o perfil mais rigoroso do ansible-lint
+profile: production
+exclude_paths:
+  - .gerado/

@@ -1,0 +1,10 @@
+---
+base_usuario: deploy
+# Par de chaves gerado no Mac por make lab-vm; só a pública vai para a VM.
+base_chave_publica: "{{ lookup('ansible.builtin.file', playbook_dir + '/.gerado/deploy_ed25519.pub') }}"
+base_pacotes:
+  - unattended-upgrades
+  - htop
+  - curl
+  - dnsutils
+  - traceroute

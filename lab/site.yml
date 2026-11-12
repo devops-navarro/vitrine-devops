@@ -1,0 +1,7 @@
+---
+# Configura o servidor do laboratório. make lab-play roda este playbook.
+- name: Laboratório Vitrine
+  hosts: lab
+  become: true
+  roles:
+    - base

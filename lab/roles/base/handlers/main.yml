@@ -1,0 +1,6 @@
+---
+- name: Recarrega o SSH
+  # reload mantém as conexões abertas, inclusive a do próprio Ansible
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: reloaded
