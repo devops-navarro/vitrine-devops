@@ -2,10 +2,21 @@ import logging
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 
 from app import models  # noqa: F401  registra as tabelas no metadata
-from app.db import SCHEMA, Base, engine
+from app.config import get_settings
+from app.db import SCHEMA, Base
+
+# Engine próprio das migrations. O usuário do banco tem o nome do schema, e o
+# search_path padrão ("$user", public) faria do schema o padrão da sessão: o
+# Alembic leria as tabelas como "sem schema" e o check acusaria todas como
+# faltando. O SQLAlchemy guarda o schema padrão na primeira conexão, então o
+# search_path precisa vir já na conexão, não num SET depois.
+engine = create_engine(
+    get_settings().database_url,
+    connect_args={"options": "-c search_path=public", "connect_timeout": 3},
+)
 
 config = context.config
 # Só configura o logging quando o Alembic roda sozinho (CLI). Dentro de um
@@ -31,6 +42,9 @@ def run_migrations_online() -> None:
         )
         if not existe:
             raise SystemExit(f"Schema '{SCHEMA}' não existe. Rode make db-bootstrap.")
+        # A consulta acima abriu uma transação (autobegin). Sem este commit, o
+        # Alembic não abre a dele, e a migration é desfeita ao fechar a conexão.
+        connection.commit()
         context.configure(
             connection=connection,
             target_metadata=Base.metadata,
