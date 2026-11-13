@@ -6,7 +6,7 @@
 
 [![ci](https://github.com/devops-navarro/vitrine-devops/actions/workflows/ci.yml/badge.svg)](https://github.com/devops-navarro/vitrine-devops/actions/workflows/ci.yml)
 
-**Status:** Fases 1 e 2 concluídas ([v0.1.0](docs/evidencias/fase-1.md), [v0.2.0](docs/evidencias/fase-2.md)) · Fase 3 a seguir
+**Status:** Fases 1 a 3 concluídas ([v0.1.0](docs/evidencias/fase-1.md), [v0.2.0](docs/evidencias/fase-2.md), [v0.3.0](docs/evidencias/fase-3.md)); a infraestrutura AWS está testada sem conta e aplicada num emulador, com o apply real pelo [runbook](docs/runbook-aws.md) · Fase 4 a seguir
 
 ## Arquitetura alvo · Target architecture
 
@@ -53,7 +53,7 @@ Cada fase vira um [milestone](https://github.com/devops-navarro/vitrine-devops/m
 
 - [x] **Fase 1** · APIs FastAPI + PostgreSQL (`services/`, `scripts/`) · [evidências](docs/evidencias/fase-1.md)
 - [x] **Fase 2** · Linux, redes e automação com Ansible (`lab/`, `scripts/`) · [evidências](docs/evidencias/fase-2.md)
-- [ ] **Fase 3** · AWS com Terraform (`infra/`)
+- [x] **Fase 3** · AWS com Terraform (`infra/`) · [evidências](docs/evidencias/fase-3.md)
 - [ ] **Fase 4** · Containers, Kubernetes, CI/CD e GitOps (`deploy/`, `.github/`)
 - [ ] **Fase 5** · Certificação AWS e inglês (em paralelo às Fases 3 e 4)
 - [ ] **Fase 6** · Observabilidade e SRE (`observability/`, `loadtest/`)
