@@ -162,3 +162,7 @@ Cuidados e limitações:
 - **TLS no bucket desligado só aqui** (`exigir_tls = false`): o Moto não preenche `aws:SecureTransport` e nega até acesso por HTTPS. Na AWS a regra fica ligada, que é o padrão do módulo.
 - **Tags de bucket**: o provider grava pelo S3 Control e o Moto não guarda, então o plan do `bootstrap` local sempre mostra as tags de novo. O da `plataforma`, que é o verificado, fica limpo.
 - Por que Moto e não LocalStack: as versões atuais do LocalStack exigem token de conta, mesmo no plano gratuito.
+
+## Aplicar na AWS
+
+O passo a passo para subir, conferir e destruir o ambiente na conta real está em [docs/runbook-aws.md](../docs/runbook-aws.md). As decisões da infraestrutura estão na [ADR 0003](../docs/adr/0003-infraestrutura-aws.md).
