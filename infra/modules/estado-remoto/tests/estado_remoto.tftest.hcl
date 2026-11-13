@@ -67,6 +67,11 @@ run "recusa_acesso_sem_tls" {
   command = plan
 
   assert {
+    condition     = length(aws_s3_bucket_policy.state) == 1
+    error_message = "A política que exige TLS precisa existir por padrão."
+  }
+
+  assert {
     condition = anytrue([
       for s in data.aws_iam_policy_document.somente_tls.statement :
       s.effect == "Deny" && anytrue([

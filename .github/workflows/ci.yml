@@ -195,3 +195,16 @@ jobs:
           # o tflint baixa o plugin AWS do GitHub; com token, sem limite de chamadas
           GITHUB_TOKEN: ${{ github.token }}
         run: make tf-check
+
+      # Apply de verdade, num emulador da AWS: os módulos sobem, o plan seguinte
+      # não muda nada e o destroy funciona. Nenhuma conta AWS envolvida.
+      - name: Apply, plan e destroy no emulador
+        run: |
+          make tf-local-up
+          make tf-local-apply
+          make tf-local-plan
+          make tf-local-destroy
+
+      - name: Desliga o emulador
+        if: always()
+        run: make tf-local-down

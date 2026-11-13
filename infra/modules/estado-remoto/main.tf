@@ -128,6 +128,8 @@ data "aws_iam_policy_document" "somente_tls" {
 }
 
 resource "aws_s3_bucket_policy" "state" {
+  count = var.exigir_tls ? 1 : 0
+
   bucket = aws_s3_bucket.state.id
   policy = data.aws_iam_policy_document.somente_tls.json
 
