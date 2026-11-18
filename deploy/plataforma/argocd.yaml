@@ -1,0 +1,57 @@
+# Argo CD no cluster local: make k8s-gitops.
+# Ele lê o repositório e deixa o cluster igual ao que está no Git.
+
+configs:
+  params:
+    # acesso local por port-forward; na AWS ficaria atrás do ALB com TLS
+    server.insecure: true
+  cm:
+    # verifica o repositório a cada 60 s (no lugar dos 180 s padrão)
+    timeout.reconciliation: 60s
+
+# login por SSO não é usado no laboratório
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+server:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+applicationSet:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+redis:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 128Mi

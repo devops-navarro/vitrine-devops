@@ -1,0 +1,44 @@
+# Uma Application por serviço, todas do mesmo chart. Os valores vêm de dois
+# arquivos: o do serviço (o que ele é) e o do ambiente (a versão implantada).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: servicos
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - servico: clientes
+          - servico: catalogo
+          - servico: pedidos
+  template:
+    metadata:
+      name: "{{ .servico }}"
+    spec:
+      project: vitrine
+      source:
+        repoURL: https://github.com/devops-navarro/vitrine-devops.git
+        targetRevision: main
+        path: deploy/charts/servico
+        helm:
+          releaseName: "{{ .servico }}"
+          valueFiles:
+            - ../../servicos/{{ .servico }}.yaml
+            - ../../ambientes/local/{{ .servico }}.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: vitrine
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          # o banco pode ainda estar subindo na primeira sincronização
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m

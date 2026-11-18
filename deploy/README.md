@@ -9,6 +9,8 @@ deploy/
   charts/servico/       chart Helm único, que implanta qualquer um dos três serviços
   servicos/             os valores de cada serviço: só o que muda entre eles
   banco/                namespace, PostgreSQL e bootstrap dos usuários (só no cluster local)
+  gitops/               Argo CD: AppProject, Application do banco e ApplicationSet dos serviços
+  ambientes/local/      a versão implantada de cada serviço: deploy e rollback são commits aqui
 ```
 
 ## Cluster local
@@ -92,3 +94,42 @@ make k8s-lint   # helm lint, kubeconform (esquema do Kubernetes 1.35), Trivy e C
 ```
 
 Exceções dos scanners ficam no próprio recurso, com o motivo (`checkov.io/skip*` e `deploy/.trivyignore.yaml`).
+
+## GitOps com Argo CD
+
+No modo GitOps, ninguém aplica nada no cluster: o Argo CD lê este repositório e deixa o cluster igual ao Git.
+
+```bash
+make k8s-up
+make k8s-gitops            # instala o Argo CD e cria as Applications; segredos a partir do .env
+make k8s-argocd-status     # SYNC e SAUDE de cada Application
+make k8s-smoke
+```
+
+Para testar uma branch antes do merge: `make k8s-gitops REVISAO=<branch>`.
+
+```
+GitHub (main) ──lido a cada 60 s──> Argo CD ──aplica──> namespace vitrine
+   deploy/banco                       Application banco
+   deploy/charts/servico      ┐
+   deploy/servicos/<s>.yaml   ├──     ApplicationSet servicos ──> clientes, catalogo, pedidos
+   deploy/ambientes/local/<s>.yaml ┘
+```
+
+| Peça | Papel |
+| --- | --- |
+| AppProject `vitrine` | Só aceita este repositório como origem e o namespace `vitrine` como destino |
+| Application `banco` | Namespace, PostgreSQL e o bootstrap (hook `PostSync`, recriado a cada sincronização) |
+| ApplicationSet `servicos` | Uma Application por serviço, do mesmo chart, com dois arquivos de valores: o do serviço e o do ambiente |
+| `deploy/ambientes/local/<s>.yaml` | A tag implantada (o commit que gerou a imagem no GHCR) e o que mais variar por ambiente |
+| `prune` e `selfHeal` | O que sai do Git sai do cluster; mudança feita na mão é desfeita |
+
+**Implantar** uma versão: commit trocando `imagem.tag` em `deploy/ambientes/local/<servico>.yaml` para o commit de uma imagem publicada pelo workflow `imagens`.
+
+**Voltar** uma versão: `git revert` desse commit.
+
+Segredos e o SQL do bootstrap não vêm do Git: `make k8s-gitops` cria a partir do `.env`. Na AWS, quem cria é o External Secrets.
+
+Dois ajustes que o Argo CD exigiu no Traefik local (`deploy/plataforma/traefik.yaml`):
+- **Endereço no status do Ingress** (`ingressEndpoint.ip: 127.0.0.1`): sem ele, o Argo CD considera o Ingress em progresso para sempre. No EKS, o AWS Load Balancer Controller preenche com o endereço do ALB.
+- **Troca de pod tirando o antigo primeiro**: com `hostPort`, só um pod por nó ocupa a porta 80, e a estratégia padrão (subir o novo antes) trava.

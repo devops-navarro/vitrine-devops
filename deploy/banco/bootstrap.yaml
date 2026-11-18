@@ -10,6 +10,10 @@ metadata:
     app.kubernetes.io/name: banco-bootstrap
     app.kubernetes.io/part-of: vitrine
   annotations:
+    # No Argo CD: roda depois que o PostgreSQL fica saudável e é recriado a cada
+    # sincronização (Job é imutável). O kubectl apply ignora estas anotações.
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     checkov.io/skip1: CKV_K8S_11=sem limite de CPU de propósito, para evitar throttling; o limite de memória continua
     checkov.io/skip2: CKV_K8S_43=imagem oficial com versão exata na tag; fixar por digest é melhoria anotada
     checkov.io/skip4: CKV_K8S_15=tag com versão exata (17.11-alpine3.24), então IfNotPresent basta

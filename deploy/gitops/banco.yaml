@@ -1,0 +1,28 @@
+# Namespace, PostgreSQL e bootstrap. Os Secrets e o ConfigMap com o SQL não
+# vêm do Git: o make cria a partir do .env (na AWS, External Secrets).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: banco
+  namespace: argocd
+spec:
+  project: vitrine
+  source:
+    repoURL: https://github.com/devops-navarro/vitrine-devops.git
+    targetRevision: main
+    path: deploy/banco
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vitrine
+  syncPolicy:
+    automated:
+      # apaga do cluster o que sair do Git
+      prune: true
+      # desfaz mudança feita na mão no cluster
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

@@ -16,7 +16,7 @@ DB_IMAGE      := postgres:17-alpine
 	lab-monitoracao lab-monitoracao-down scripts-lint scripts-test \
 	tf-fmt tf-validate tf-lint tf-sec tf-test tf-check \
 	tf-local-up tf-local-apply tf-local-plan tf-local-destroy tf-local-down \
-	k8s-up k8s-down k8s-status k8s-lint k8s-banco k8s-imagens k8s-servicos k8s-app k8s-smoke k8s-seed
+	k8s-up k8s-down k8s-status k8s-lint k8s-banco k8s-imagens k8s-servicos k8s-app k8s-smoke k8s-seed k8s-segredos k8s-gitops k8s-argocd-status
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -300,7 +300,16 @@ K8S := kubectl --context $(K8S_CONTEXTO)
 # confundir o que está rodando com o que está no Git.
 IMAGEM_TAG ?= $(shell git rev-parse --short HEAD)$(shell git diff --quiet HEAD 2>/dev/null || echo -sujo)
 
-k8s-banco: ## Namespace, segredos a partir do .env, PostgreSQL e bootstrap dos usuários
+k8s-banco: k8s-segredos ## Namespace, segredos a partir do .env, PostgreSQL e bootstrap dos usuários
+	$(K8S) apply -f deploy/banco/postgres.yaml
+	$(K8S) -n vitrine rollout status statefulset/postgres --timeout=180s
+	$(K8S) -n vitrine delete job banco-bootstrap --ignore-not-found
+	$(K8S) apply -f deploy/banco/bootstrap.yaml
+	$(K8S) -n vitrine wait --for=condition=complete job/banco-bootstrap --timeout=180s
+
+# O que não vem do Git: segredos e o SQL do bootstrap. Usado pelo make k8s-banco
+# e pelo GitOps (na AWS, quem cria os segredos é o External Secrets).
+k8s-segredos:
 	@test -f .env || (echo "Crie o .env a partir do .env.example" && exit 1)
 	$(K8S) apply -f deploy/banco/namespace.yaml
 	@# segredos gerados na hora a partir do .env: nunca gravados em arquivo
@@ -317,11 +326,24 @@ k8s-banco: ## Namespace, segredos a partir do .env, PostgreSQL e bootstrap dos u
 		--dry-run=client -o yaml | $(K8S) apply -f -
 	$(K8S) -n vitrine create configmap banco-bootstrap-sql --from-file=infra/postgres \
 		--dry-run=client -o yaml | $(K8S) apply -f -
-	$(K8S) apply -f deploy/banco/postgres.yaml
-	$(K8S) -n vitrine rollout status statefulset/postgres --timeout=180s
-	$(K8S) -n vitrine delete job banco-bootstrap --ignore-not-found
-	$(K8S) apply -f deploy/banco/bootstrap.yaml
-	$(K8S) -n vitrine wait --for=condition=complete job/banco-bootstrap --timeout=180s
+
+ARGOCD_CHART := 10.18.0
+# Revisão do Git que o Argo CD acompanha. Padrão: main. Para testar uma branch
+# antes do merge: make k8s-gitops REVISAO=minha-branch
+REVISAO ?= main
+
+k8s-gitops: k8s-segredos ## Instala o Argo CD e entrega o cluster a ele (banco e serviços vêm do Git)
+	helm repo add argo https://argoproj.github.io/argo-helm --force-update >/dev/null
+	helm --kube-context $(K8S_CONTEXTO) upgrade --install argocd argo/argo-cd \
+		--version $(ARGOCD_CHART) --namespace argocd --create-namespace \
+		--values deploy/plataforma/argocd.yaml --wait --timeout 10m
+	$(K8S) apply -f deploy/gitops/projeto.yaml
+	@for f in banco servicos; do \
+		sed 's#targetRevision: main#targetRevision: $(REVISAO)#' deploy/gitops/$$f.yaml | $(K8S) apply -f - || exit 1; \
+	done
+
+k8s-argocd-status: ## Situação das Applications no Argo CD
+	$(K8S) -n argocd get applications -o custom-columns='APP:.metadata.name,SYNC:.status.sync.status,SAUDE:.status.health.status,REVISAO:.status.sync.revision'
 
 k8s-imagens: ## Constrói as imagens com a tag do commit e carrega no kind
 	@for s in $(SERVICOS); do \

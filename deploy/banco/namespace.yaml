@@ -5,6 +5,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: vitrine
+  annotations:
+    # apagar a Application no Argo CD nunca apaga o namespace (nem os dados)
+    argocd.argoproj.io/sync-options: Delete=false
   labels:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest

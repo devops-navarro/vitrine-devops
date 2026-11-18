@@ -31,9 +31,18 @@ def chamar(metodo: str, url: str, corpo: dict | None = None, chave: str | None =
     pedido = urllib.request.Request(url, data=dados, headers=cabecalhos, method=metodo)
     try:
         with urllib.request.urlopen(pedido, timeout=5) as resposta:
-            return resposta.status, json.loads(resposta.read() or b"null")
+            return resposta.status, _corpo(resposta.read())
     except urllib.error.HTTPError as erro:
-        return erro.code, json.loads(erro.read() or b"null")
+        return erro.code, _corpo(erro.read())
+
+
+def _corpo(conteudo: bytes):
+    # Nem toda resposta é JSON: um proxy ainda carregando rotas responde
+    # "404 page not found" em texto. Isso é "ainda não pronto", não um erro do script.
+    try:
+        return json.loads(conteudo or b"null")
+    except ValueError:
+        return conteudo.decode(errors="replace")
 
 
 def cpf_valido() -> str:
