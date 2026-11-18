@@ -1,6 +1,6 @@
 # deploy
 
-Tudo o que roda os serviços em Kubernetes. Localmente, num cluster [kind](https://kind.sigs.k8s.io/) com a mesma versão do EKS.
+Tudo o que roda os serviços em Kubernetes. Localmente, num cluster [kind](https://kind.sigs.k8s.io/) com a mesma versão do EKS. As decisões estão na [ADR 0004](../docs/adr/0004-kubernetes-entrega-e-gitops.md).
 
 ```
 deploy/

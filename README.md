@@ -115,6 +115,17 @@ make migrations-check       # migrations sobem, descem e batem com o modelo
 
 O CI roda em cada PR o `make test` e o `make migrations-check` (um job por serviço, contra PostgreSQL real) e o `make up` + `make smoke` + `make seed` (duas vezes, a segunda sem poder mudar nada) a partir do `.env.example`.
 
+## Kubernetes e GitOps
+
+Os três serviços num cluster Kubernetes local (kind, mesma versão do EKS), entregues pelo Argo CD a partir deste repositório. Detalhes em [deploy/README.md](deploy/README.md) e na [ADR 0004](docs/adr/0004-kubernetes-entrega-e-gitops.md).
+
+```bash
+make k8s-up && make k8s-gitops   # cluster + Argo CD; banco e serviços vêm do Git
+make k8s-smoke                   # pelo ingress em 127.0.0.1:8080
+```
+
+Implantar e voltar versão são commits em `deploy/ambientes/local/`. As imagens são construídas pelo pipeline para amd64 e arm64, varridas pelo Trivy e publicadas no GHCR com proveniência e SBOM.
+
 ## Laboratório Linux
 
 Uma VM Ubuntu configurada só pelo Ansible e monitorada com Prometheus e Grafana: veja [lab/README.md](lab/README.md).
