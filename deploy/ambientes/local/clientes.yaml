@@ -1,3 +1,5 @@
 # Versão implantada no ambiente local. Implantar ou voltar versão é um commit aqui.
 imagem:
   tag: ceda3c1fb5d957921231932fb522397d40d1b713
+ambiente:
+  LOG_LEVEL: DEBUG
