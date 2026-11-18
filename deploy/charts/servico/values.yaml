@@ -1,0 +1,71 @@
+# Valores padrão. Cada serviço sobrescreve o que precisa em deploy/servicos/<nome>.yaml.
+
+# clientes, catalogo ou pedidos (obrigatório)
+nome: ""
+
+imagem:
+  repositorio: ""
+  # a tag é o commit que gerou a imagem (obrigatório): "latest" não diz o que está rodando
+  tag: ""
+  politicaPull: IfNotPresent
+
+porta: 8000
+
+# Ignorado quando o autoscaling está ativo: quem decide a quantidade é o HPA.
+replicas: 2
+
+recursos:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  # sem limite de CPU: limitar CPU causa lentidão por throttling mesmo com o nó ocioso
+  limits:
+    memory: 256Mi
+
+# Variáveis sem segredo (LOG_LEVEL, POSTGRES_HOST...)
+ambiente: {}
+
+# Variáveis lidas de Secrets do Kubernetes: VARIAVEL: {secret: nome, chave: chave}
+segredos: {}
+
+autoscaling:
+  ativo: true
+  minimo: 2
+  maximo: 5
+  # porcentagem do request de CPU
+  cpuAlvo: 70
+
+pdb:
+  ativo: true
+  # numa manutenção de nó, ao menos uma réplica continua atendendo
+  minDisponivel: 1
+
+migracao:
+  # Job do Alembic antes de instalar ou atualizar: os pods novos já encontram o banco migrado
+  ativa: true
+  comando: ["alembic", "upgrade", "head"]
+
+networkPolicy:
+  ativa: true
+  # namespaces que podem chamar a API (o ingress controller)
+  entradaDeNamespaces:
+    - traefik
+  # outros serviços da Vitrine, no mesmo namespace, que podem chamar este
+  entradaDeServicos: []
+  # serviços da Vitrine que este pode chamar (pedidos -> clientes, catalogo)
+  saidaParaServicos: []
+  # pods do banco, por label, no mesmo namespace
+  banco:
+    labels:
+      app.kubernetes.io/name: postgres
+    porta: 5432
+
+ingress:
+  ativo: false
+  classe: traefik
+  # prefixos públicos deste serviço; /health, /ready, /metrics e /docs não entram
+  caminhos: []
+
+terminacao:
+  # tempo para terminar as requisições em andamento depois do SIGTERM
+  segundos: 30

@@ -1,0 +1,54 @@
+{{- if .Values.migracao.ativa }}
+# Roda antes de instalar ou atualizar (hook do Helm): os pods novos só sobem com
+# o banco já migrado. Se a migration falhar, o upgrade para e a versão antiga
+# continua no ar. É o mesmo desenho do *-migrate do docker compose.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "servico.nome" . }}-migracao
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "servico.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migracao
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    # some quando dá certo; se falhar, fica para ler o log
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    checkov.io/skip1: CKV_K8S_11=sem limite de CPU de propósito, para evitar throttling; o limite de memória continua
+    checkov.io/skip2: CKV_K8S_15=a tag é o commit e não muda, então IfNotPresent basta
+    checkov.io/skip3: CKV_K8S_43=tag por commit; fixar por digest entra com o GitOps
+    checkov.io/skip4: CKV_K8S_35=a aplicação lê a configuração do ambiente (12-factor); segredo em arquivo é melhoria anotada
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        {{- include "servico.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migracao
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "servico.segurancaPod" . | nindent 8 }}
+      containers:
+        - name: migracao
+          image: {{ include "servico.imagem" . }}
+          imagePullPolicy: {{ .Values.imagem.politicaPull }}
+          command:
+            {{- toYaml .Values.migracao.comando | nindent 12 }}
+          env:
+            {{- include "servico.env" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.recursos | nindent 12 }}
+          securityContext:
+            {{- include "servico.segurancaConteiner" . | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+{{- end }}

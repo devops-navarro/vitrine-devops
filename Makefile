@@ -16,7 +16,7 @@ DB_IMAGE      := postgres:17-alpine
 	lab-monitoracao lab-monitoracao-down scripts-lint scripts-test \
 	tf-fmt tf-validate tf-lint tf-sec tf-test tf-check \
 	tf-local-up tf-local-apply tf-local-plan tf-local-destroy tf-local-down \
-	k8s-up k8s-down k8s-status
+	k8s-up k8s-down k8s-status k8s-lint
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -276,3 +276,20 @@ k8s-status: ## Nós, pods de todos os namespaces e uso de recursos
 
 k8s-down: ## Apaga o cluster kind
 	kind delete cluster --name $(K8S_CLUSTER)
+
+SERVICOS := clientes catalogo pedidos
+K8S_RENDER := deploy/renderizado
+
+# Renderiza o chart de cada serviço e valida: helm lint, esquema do Kubernetes
+# (kubeconform), configuração insegura (Trivy e Checkov).
+k8s-lint: ## Valida o chart Helm de cada serviço
+	@mkdir -p $(K8S_RENDER)
+	@for s in $(SERVICOS); do \
+		helm lint deploy/charts/servico -f deploy/servicos/$$s.yaml --set imagem.tag=validacao --strict >/dev/null || exit 1; \
+		helm template $$s deploy/charts/servico -f deploy/servicos/$$s.yaml \
+			--set imagem.tag=validacao --namespace vitrine > $(K8S_RENDER)/$$s.yaml || exit 1; \
+	done
+	kubeconform -strict -summary -kubernetes-version 1.35.0 $(K8S_RENDER)
+	trivy config --quiet --severity MEDIUM,HIGH,CRITICAL --exit-code 1 \
+		--ignorefile deploy/.trivyignore.yaml $(K8S_RENDER)
+	checkov -d $(K8S_RENDER) --framework kubernetes --quiet --compact

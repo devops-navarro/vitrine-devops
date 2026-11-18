@@ -1,0 +1,24 @@
+{{- if .Values.ingress.ativo }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "servico.nome" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "servico.labels" . | nindent 4 }}
+spec:
+  # local: traefik; no EKS: alb (AWS Load Balancer Controller, ADR 0002)
+  ingressClassName: {{ .Values.ingress.classe }}
+  rules:
+    - http:
+        paths:
+          {{- range required "ingress.caminhos: liste os prefixos públicos do serviço" .Values.ingress.caminhos }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "servico.nome" $ }}
+                port:
+                  name: http
+          {{- end }}
+{{- end }}

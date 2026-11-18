@@ -1,0 +1,4 @@
+# Exceções do Trivy para os manifestos de deploy, cada uma com o motivo.
+misconfigurations:
+  - id: KSV-0125
+    statement: ghcr.io é o registro de imagens do próprio projeto; a lista padrão do Trivy só conhece alguns registros públicos

@@ -208,3 +208,31 @@ jobs:
       - name: Desliga o emulador
         if: always()
         run: make tf-local-down
+
+  # Chart Helm renderizado e validado para os três serviços.
+  kubernetes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.3.1
+
+      - uses: aquasecurity/setup-trivy@v0.3.1
+        with:
+          version: v0.76.2
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.7"
+
+      - name: kubeconform e Checkov
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
+            | tar -xz -C /usr/local/bin kubeconform
+          uv tool install checkov==3.4.5
+
+      - name: Lint, esquema e segurança do chart
+        run: make k8s-lint
