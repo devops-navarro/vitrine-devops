@@ -17,6 +17,10 @@ CLIENTES = os.environ.get("SMOKE_CLIENTES_URL", "http://localhost:8001")
 CATALOGO = os.environ.get("SMOKE_CATALOGO_URL", "http://localhost:8002")
 PEDIDOS = os.environ.get("SMOKE_PEDIDOS_URL", "http://localhost:8003")
 CHAVE = os.environ["API_KEYS"].split(",")[0].strip()
+# Pelo ingress, /ready não é publicado (só as rotas de negócio são). Nesse modo,
+# "pronto" é a rota de negócio responder 401 sem chave: o roteamento chegou à
+# aplicação, e ela está de pé.
+VIA_INGRESS = os.environ.get("SMOKE_VIA_INGRESS") == "1"
 
 
 def chamar(metodo: str, url: str, corpo: dict | None = None, chave: str | None = CHAVE):
@@ -47,27 +51,30 @@ def conferir(descricao: str, condicao: bool, detalhe: object = "") -> None:
         sys.exit(1)
 
 
-def esperar_pronto(nome: str, url: str, limite: float = 60) -> None:
+def esperar_pronto(nome: str, url: str, rota_negocio: str, limite: float = 60) -> None:
+    caminho, esperado = (rota_negocio, 401) if VIA_INGRESS else ("/ready", 200)
     fim = time.monotonic() + limite
     while time.monotonic() < fim:
         try:
-            if chamar("GET", f"{url}/ready", chave=None)[0] == 200:
+            if chamar("GET", f"{url}{caminho}", chave=None)[0] == esperado:
                 return conferir(f"{nome} pronto", True)
         except OSError:
             pass
         time.sleep(1)
-    conferir(f"{nome} pronto", False, f"{url}/ready não respondeu 200 em {limite}s")
+    conferir(
+        f"{nome} pronto", False, f"{url}{caminho} não respondeu {esperado} em {limite}s"
+    )
 
 
 RASTREIO = f"smoke-{uuid.uuid4().hex[:8]}"
 
 if __name__ == "__main__":
-    for nome, url in (
-        ("clientes", CLIENTES),
-        ("catalogo", CATALOGO),
-        ("pedidos", PEDIDOS),
+    for nome, url, rota in (
+        ("clientes", CLIENTES, "/clientes"),
+        ("catalogo", CATALOGO, "/produtos"),
+        ("pedidos", PEDIDOS, "/pedidos"),
     ):
-        esperar_pronto(nome, url)
+        esperar_pronto(nome, url, rota)
 
     status, _ = chamar("GET", f"{CLIENTES}/clientes", chave=None)
     conferir("rota de negócio sem chave devolve 401", status == 401, status)

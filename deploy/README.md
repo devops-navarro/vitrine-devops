@@ -38,6 +38,15 @@ make k8s-up      # cluster
 make k8s-app     # banco + os três serviços (imagens com a tag do commit)
 ```
 
+Depois, pelo ingress em `http://127.0.0.1:8080`:
+
+```bash
+make k8s-smoke   # o mesmo smoke test do compose
+make k8s-seed    # o mesmo seed; ARGS=--sem-mudancas confere que não muda nada
+```
+
+O ingress publica só `/clientes`, `/produtos` e `/pedidos`. `/health`, `/ready`, `/metrics` e `/docs` respondem 404 de fora, inclusive com tentativas como `/clientes/../metrics`. Por isso, pelo ingress, o smoke considera um serviço pronto quando a rota de negócio responde 401 sem chave (`SMOKE_VIA_INGRESS=1`).
+
 `make k8s-app` é a soma de:
 - `k8s-banco`: namespace, segredos, PostgreSQL e bootstrap;
 - `k8s-servicos`: constrói as imagens com a tag do commit (mais `-sujo` se houver mudança não commitada), carrega no kind e faz `helm upgrade --install` de cada serviço.

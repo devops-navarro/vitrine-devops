@@ -16,7 +16,7 @@ DB_IMAGE      := postgres:17-alpine
 	lab-monitoracao lab-monitoracao-down scripts-lint scripts-test \
 	tf-fmt tf-validate tf-lint tf-sec tf-test tf-check \
 	tf-local-up tf-local-apply tf-local-plan tf-local-destroy tf-local-down \
-	k8s-up k8s-down k8s-status k8s-lint k8s-banco k8s-imagens k8s-servicos k8s-app
+	k8s-up k8s-down k8s-status k8s-lint k8s-banco k8s-imagens k8s-servicos k8s-app k8s-smoke k8s-seed
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -339,3 +339,14 @@ k8s-servicos: k8s-imagens ## Instala ou atualiza os três serviços pelo chart
 	done
 
 k8s-app: k8s-banco k8s-servicos ## Banco e serviços no cluster local
+
+# Pelo ingress, um endereço só: o roteamento é pelo prefixo do caminho.
+K8S_INGRESS := http://127.0.0.1:8080
+
+k8s-smoke: ## Smoke test pelo ingress do cluster local
+	SMOKE_VIA_INGRESS=1 SMOKE_CLIENTES_URL=$(K8S_INGRESS) SMOKE_CATALOGO_URL=$(K8S_INGRESS) \
+		SMOKE_PEDIDOS_URL=$(K8S_INGRESS) uv run --no-project --python 3.12 scripts/smoke.py
+
+k8s-seed: ## Dados de exemplo pelo ingress do cluster local
+	SEED_CLIENTES_URL=$(K8S_INGRESS) SEED_CATALOGO_URL=$(K8S_INGRESS) SEED_PEDIDOS_URL=$(K8S_INGRESS) \
+		uv run --no-project --python 3.12 scripts/seed.py $(ARGS)
