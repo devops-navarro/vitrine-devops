@@ -1,0 +1,55 @@
+# Ingress controller do cluster local. No EKS, o mesmo recurso Ingress vira um
+# ALB pelo AWS Load Balancer Controller (ADR 0002); só muda o ingressClassName.
+
+deployment:
+  replicas: 1
+
+# no nó que recebe as portas 80 do Mac (deploy/kind/cluster.yaml)
+nodeSelector:
+  ingress-ready: "true"
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+ports:
+  web:
+    # hostPort: a porta 80 do nó, que o kind liga à 8080 do Mac
+    hostPort: 80
+  websecure:
+    expose:
+      default: false
+
+service:
+  spec:
+    # a entrada é pela hostPort do nó; nada de LoadBalancer no cluster local
+    type: ClusterIP
+
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+  name: traefik
+
+providers:
+  kubernetesIngress:
+    enabled: true
+  kubernetesCRD:
+    enabled: false
+
+# painel e API do Traefik desligados: nada além das rotas declaradas
+ingressRoute:
+  dashboard:
+    enabled: false
+
+log:
+  format: json
+accessLog:
+  enabled: true
+  format: json
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi

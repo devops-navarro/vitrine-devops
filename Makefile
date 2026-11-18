@@ -15,7 +15,8 @@ DB_IMAGE      := postgres:17-alpine
 	lab-deps lab-vm lab-ping lab-ssh lab-destroy lab lab-play lab-idempotencia lab-lint \
 	lab-monitoracao lab-monitoracao-down scripts-lint scripts-test \
 	tf-fmt tf-validate tf-lint tf-sec tf-test tf-check \
-	tf-local-up tf-local-apply tf-local-plan tf-local-destroy tf-local-down
+	tf-local-up tf-local-apply tf-local-plan tf-local-destroy tf-local-down \
+	k8s-up k8s-down k8s-status
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -248,3 +249,30 @@ tf-local-down: ## Desliga o emulador (que zera tudo) e apaga o state e o cache l
 	rm -f $(TF_LOCAL)/bootstrap/terraform.tfstate $(TF_LOCAL)/bootstrap/terraform.tfstate.backup
 	@# a configuração de backend guardada aqui apontaria para um emulador desligado
 	rm -rf $(TF_LOCAL)/bootstrap/.terraform $(TF_LOCAL)/plataforma/.terraform
+
+# --- Kubernetes local (Fase 4): kind com a mesma versão do EKS ---
+
+K8S_CLUSTER  := vitrine
+K8S_CONTEXTO := kind-$(K8S_CLUSTER)
+TRAEFIK_CHART := 42.4.0
+METRICS_CHART := 3.13.1
+
+k8s-up: ## Cria o cluster kind com ingress (Traefik) e metrics-server
+	@kind get clusters 2>/dev/null | grep -qx $(K8S_CLUSTER) \
+		|| kind create cluster --config deploy/kind/cluster.yaml --wait 120s
+	helm repo add traefik https://traefik.github.io/charts --force-update >/dev/null
+	helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ --force-update >/dev/null
+	helm --kube-context $(K8S_CONTEXTO) upgrade --install traefik traefik/traefik \
+		--version $(TRAEFIK_CHART) --namespace traefik --create-namespace \
+		--values deploy/plataforma/traefik.yaml --wait
+	helm --kube-context $(K8S_CONTEXTO) upgrade --install metrics-server metrics-server/metrics-server \
+		--version $(METRICS_CHART) --namespace kube-system \
+		--values deploy/plataforma/metrics-server.yaml --wait
+
+k8s-status: ## Nós, pods de todos os namespaces e uso de recursos
+	kubectl --context $(K8S_CONTEXTO) get nodes -o wide
+	kubectl --context $(K8S_CONTEXTO) get pods -A
+	-kubectl --context $(K8S_CONTEXTO) top nodes
+
+k8s-down: ## Apaga o cluster kind
+	kind delete cluster --name $(K8S_CLUSTER)

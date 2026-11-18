@@ -1,0 +1,10 @@
+# Métricas de CPU e memória dos pods: o HPA decide a quantidade de réplicas por elas.
+
+args:
+  # o kubelet do kind usa certificado autoassinado; no EKS esta opção não é usada
+  - --kubelet-insecure-tls
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
