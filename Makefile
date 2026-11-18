@@ -16,7 +16,7 @@ DB_IMAGE      := postgres:17-alpine
 	lab-monitoracao lab-monitoracao-down scripts-lint scripts-test \
 	tf-fmt tf-validate tf-lint tf-sec tf-test tf-check \
 	tf-local-up tf-local-apply tf-local-plan tf-local-destroy tf-local-down \
-	k8s-up k8s-down k8s-status k8s-lint
+	k8s-up k8s-down k8s-status k8s-lint k8s-banco k8s-imagens k8s-servicos k8s-app
 
 help: ## Lista os comandos disponíveis
 	@grep -hE '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-26s %s\n", $$1, $$2}'
@@ -289,7 +289,53 @@ k8s-lint: ## Valida o chart Helm de cada serviço
 		helm template $$s deploy/charts/servico -f deploy/servicos/$$s.yaml \
 			--set imagem.tag=validacao --namespace vitrine > $(K8S_RENDER)/$$s.yaml || exit 1; \
 	done
+	@cp deploy/banco/*.yaml $(K8S_RENDER)/
 	kubeconform -strict -summary -kubernetes-version 1.35.0 $(K8S_RENDER)
 	trivy config --quiet --severity MEDIUM,HIGH,CRITICAL --exit-code 1 \
 		--ignorefile deploy/.trivyignore.yaml $(K8S_RENDER)
 	checkov -d $(K8S_RENDER) --framework kubernetes --quiet --compact
+
+K8S := kubectl --context $(K8S_CONTEXTO)
+# Tag da imagem = commit; "-sujo" se houver mudança não commitada, para nunca
+# confundir o que está rodando com o que está no Git.
+IMAGEM_TAG ?= $(shell git rev-parse --short HEAD)$(shell git diff --quiet HEAD 2>/dev/null || echo -sujo)
+
+k8s-banco: ## Namespace, segredos a partir do .env, PostgreSQL e bootstrap dos usuários
+	@test -f .env || (echo "Crie o .env a partir do .env.example" && exit 1)
+	$(K8S) apply -f deploy/banco/namespace.yaml
+	@# segredos gerados na hora a partir do .env: nunca gravados em arquivo
+	@$(K8S) -n vitrine create secret generic vitrine-banco \
+		--from-literal=admin-usuario="$$POSTGRES_USER" \
+		--from-literal=admin-senha="$$POSTGRES_PASSWORD" \
+		--from-literal=clientes-senha="$$CLIENTES_DB_PASSWORD" \
+		--from-literal=catalogo-senha="$$CATALOGO_DB_PASSWORD" \
+		--from-literal=pedidos-senha="$$PEDIDOS_DB_PASSWORD" \
+		--dry-run=client -o yaml | $(K8S) apply -f -
+	@$(K8S) -n vitrine create secret generic vitrine-api \
+		--from-literal=api-keys="$$API_KEYS" \
+		--from-literal=chave-interna="$${API_KEYS%%,*}" \
+		--dry-run=client -o yaml | $(K8S) apply -f -
+	$(K8S) -n vitrine create configmap banco-bootstrap-sql --from-file=infra/postgres \
+		--dry-run=client -o yaml | $(K8S) apply -f -
+	$(K8S) apply -f deploy/banco/postgres.yaml
+	$(K8S) -n vitrine rollout status statefulset/postgres --timeout=180s
+	$(K8S) -n vitrine delete job banco-bootstrap --ignore-not-found
+	$(K8S) apply -f deploy/banco/bootstrap.yaml
+	$(K8S) -n vitrine wait --for=condition=complete job/banco-bootstrap --timeout=180s
+
+k8s-imagens: ## Constrói as imagens com a tag do commit e carrega no kind
+	@for s in $(SERVICOS); do \
+		docker build -q -t vitrine/$$s:$(IMAGEM_TAG) services/$$s >/dev/null || exit 1; \
+		kind load docker-image vitrine/$$s:$(IMAGEM_TAG) --name $(K8S_CLUSTER) || exit 1; \
+	done
+
+k8s-servicos: k8s-imagens ## Instala ou atualiza os três serviços pelo chart
+	@for s in $(SERVICOS); do \
+		echo "== $$s ($(IMAGEM_TAG))"; \
+		helm --kube-context $(K8S_CONTEXTO) upgrade --install $$s deploy/charts/servico \
+			--namespace vitrine -f deploy/servicos/$$s.yaml \
+			--set imagem.repositorio=vitrine/$$s --set imagem.tag=$(IMAGEM_TAG) \
+			--set imagem.politicaPull=Never --wait --timeout 5m || exit 1; \
+	done
+
+k8s-app: k8s-banco k8s-servicos ## Banco e serviços no cluster local

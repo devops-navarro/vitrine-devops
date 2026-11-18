@@ -1,0 +1,137 @@
+# PostgreSQL do cluster local. Na AWS, quem faz este papel é o RDS (infra/modules/rds).
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: vitrine
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: vitrine
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: vitrine
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: vitrine
+  annotations:
+    checkov.io/skip1: CKV_K8S_11=sem limite de CPU de propósito, para evitar throttling; o limite de memória continua
+    checkov.io/skip2: CKV_K8S_43=imagem oficial com versão exata na tag; fixar por digest é melhoria anotada
+    checkov.io/skip4: CKV_K8S_15=tag com versão exata (17.11-alpine3.24), então IfNotPresent basta
+    checkov.io/skip5: CKV_K8S_40=uid 70 é o usuário postgres da imagem oficial; banco só do cluster local, na AWS é o RDS
+    checkov.io/skip3: CKV_K8S_35=a imagem do PostgreSQL lê a senha do administrador do ambiente
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: vitrine
+    spec:
+      automountServiceAccountToken: false
+      # usuário postgres da imagem alpine (uid 70): o namespace não aceita root
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:17.11-alpine3.24
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: vitrine
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef: {name: vitrine-banco, key: admin-usuario}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: vitrine-banco, key: admin-senha}
+            # subpasta: a raiz do volume tem lost+found, e o initdb exige pasta vazia
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d vitrine -h 127.0.0.1"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d vitrine -h 127.0.0.1"]
+            periodSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: dados
+              mountPath: /var/lib/postgresql/data
+            # as únicas outras pastas que o PostgreSQL grava
+            - name: socket
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: socket
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: dados
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
+---
+# Só os pods da Vitrine (serviços, migrations e bootstrap) chegam ao banco.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  namespace: vitrine
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: vitrine
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: vitrine
+      ports:
+        - port: 5432
+  # o banco não inicia conexão com ninguém
+  egress: []

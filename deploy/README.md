@@ -8,6 +8,7 @@ deploy/
   plataforma/           o que o cluster precisa antes dos serviços: ingress e métricas
   charts/servico/       chart Helm único, que implanta qualquer um dos três serviços
   servicos/             os valores de cada serviço: só o que muda entre eles
+  banco/                namespace, PostgreSQL e bootstrap dos usuários (só no cluster local)
 ```
 
 ## Cluster local
@@ -30,7 +31,38 @@ O ingress fica em `http://127.0.0.1:8080`, só acessível pelo próprio Mac.
 
 Dois workers para que réplicas fiquem em nós diferentes e o PodDisruptionBudget tenha efeito ao drenar um nó.
 
-## Chart `servico`
+## Subindo a aplicação
+
+```bash
+make k8s-up      # cluster
+make k8s-app     # banco + os três serviços (imagens com a tag do commit)
+```
+
+`make k8s-app` é a soma de:
+- `k8s-banco`: namespace, segredos, PostgreSQL e bootstrap;
+- `k8s-servicos`: constrói as imagens com a tag do commit (mais `-sujo` se houver mudança não commitada), carrega no kind e faz `helm upgrade --install` de cada serviço.
+
+## Banco, segredos e bootstrap
+
+| Peça | Como funciona |
+| --- | --- |
+| Namespace `vitrine` | Pod Security Standard **`restricted`** em modo enforce: a API do Kubernetes recusa pod que rode como root ou peça privilégio. Vale também para o banco |
+| PostgreSQL | StatefulSet com volume persistente de 1 GB, versão fixa (`17.11-alpine3.24`), uid 70, sistema de arquivos só leitura. NetworkPolicy: só pods da Vitrine entram na 5432; o banco não abre conexão com ninguém |
+| Segredos | `vitrine-banco` (senhas do administrador e de cada serviço) e `vitrine-api` (chaves da API) criados **na hora** a partir do `.env`, com `kubectl create secret --dry-run \| kubectl apply`. Não existem em arquivo nem no Git |
+| Bootstrap | Job que roda o mesmo `infra/postgres/bootstrap.sql` do Mac e do compose, montado de um ConfigMap: um usuário por serviço, dono só do próprio schema (ADR 0001). A NetworkPolicy dele só permite DNS e banco |
+
+### Na AWS
+
+O cluster local substitui três peças da AWS, e o resto é igual:
+
+| Local | AWS |
+| --- | --- |
+| StatefulSet `postgres` | RDS (`infra/modules/rds`); `POSTGRES_HOST` passa a ser o endpoint do RDS |
+| Secrets criados a partir do `.env` | External Secrets lendo o Secrets Manager, com permissão por Pod Identity (`infra/modules/eks`). A senha do administrador é a que o próprio RDS guarda |
+| Job de bootstrap contra o PostgreSQL do cluster | O mesmo Job, apontado para o RDS |
+
+Os charts dos serviços não mudam: os nomes dos Secrets e das chaves são os mesmos.
+
 
 Um chart para os três serviços. Cada um tem um arquivo em `servicos/` com o que muda: caminhos públicos, quem pode chamar quem e as variáveis. A tag da imagem é obrigatória e não pode ser `latest`: ela é o commit, para sempre se saber o que está rodando.
 

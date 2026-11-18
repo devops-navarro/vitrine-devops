@@ -1,0 +1,12 @@
+# Namespace dos serviços. O Pod Security Standard "restricted" é imposto pela
+# própria API do Kubernetes: pod que rode como root ou peça privilégio é recusado
+# na criação, inclusive o do banco.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vitrine
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
