@@ -1,0 +1,25 @@
+# Limites de tudo que o Argo CD pode implantar para a Vitrine: só deste
+# repositório e só no namespace vitrine. Uma Application mal escrita não
+# consegue trazer manifesto de outro lugar nem mexer em outro namespace.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: vitrine
+  namespace: argocd
+spec:
+  description: Serviços e banco da Vitrine
+  sourceRepos:
+    - https://github.com/devops-navarro/vitrine-devops.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: vitrine
+  # recursos de cluster permitidos: só o próprio namespace
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  # cluster, nó, papel de cluster: nada disso pode vir por aqui
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: ResourceQuota
+    - group: ""
+      kind: LimitRange
