@@ -1,0 +1,42 @@
+{{- if .Values.autoscaling.ativo }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "servico.nome" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "servico.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "servico.nome" . }}
+  minReplicas: {{ .Values.autoscaling.minimo }}
+  maxReplicas: {{ .Values.autoscaling.maximo }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.cpuAlvo }}
+  behavior:
+    scaleDown:
+      # sobe rápido e desce devagar: evita oscilar a cada pico curto
+      stabilizationWindowSeconds: 300
+{{- end }}
+{{- if .Values.pdb.ativo }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "servico.nome" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "servico.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minDisponivel }}
+  selector:
+    matchLabels:
+      {{- include "servico.selecao" . | nindent 6 }}
+{{- end }}

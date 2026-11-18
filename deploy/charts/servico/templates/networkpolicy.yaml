@@ -1,0 +1,60 @@
+{{- if .Values.networkPolicy.ativa }}
+{{- $np := .Values.networkPolicy }}
+# Nega toda entrada e saída que não esteja listada aqui.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "servico.nome" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "servico.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "servico.selecao" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports:
+        - port: http
+      from:
+        {{- range $np.entradaDeNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+        {{- range $np.entradaDeServicos }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ . }}
+              app.kubernetes.io/part-of: vitrine
+        {{- end }}
+  egress:
+    # DNS do cluster, para achar o banco e os outros serviços pelo nome
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $np.banco.labels | nindent 14 }}
+      ports:
+        - port: {{ $np.banco.porta }}
+    {{- range $np.saidaParaServicos }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ . }}
+              app.kubernetes.io/part-of: vitrine
+      ports:
+        - port: 8000
+    {{- end }}
+{{- end }}

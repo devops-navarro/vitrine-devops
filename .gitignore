@@ -37,3 +37,6 @@ infra/modules/**/.terraform.lock.hcl
 
 # Configuração do backend com o nome real do bucket (contém o número da conta)
 infra/envs/*/backend.hcl
+
+# Manifestos renderizados pelo make k8s-lint (sem ponto no nome: o Checkov ignora pastas ocultas)
+deploy/renderizado/

@@ -1,0 +1,28 @@
+nome: pedidos
+
+imagem:
+  repositorio: ghcr.io/devops-navarro/vitrine-pedidos
+
+ambiente:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: vitrine
+  POSTGRES_USER: pedidos
+  LOG_LEVEL: INFO
+  # dentro do cluster cada serviço é achado pelo nome do Service
+  CLIENTES_URL: http://clientes
+  CATALOGO_URL: http://catalogo
+  HTTP_TIMEOUT_SEGUNDOS: "3"
+
+segredos:
+  POSTGRES_PASSWORD: {secret: vitrine-banco, chave: pedidos-senha}
+  API_KEYS: {secret: vitrine-api, chave: api-keys}
+  CLIENTES_API_KEY: {secret: vitrine-api, chave: chave-interna}
+  CATALOGO_API_KEY: {secret: vitrine-api, chave: chave-interna}
+
+networkPolicy:
+  saidaParaServicos: [clientes, catalogo]
+
+ingress:
+  ativo: true
+  caminhos: [/pedidos]

@@ -1,0 +1,22 @@
+nome: clientes
+
+imagem:
+  repositorio: ghcr.io/devops-navarro/vitrine-clientes
+
+ambiente:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: vitrine
+  POSTGRES_USER: clientes
+  LOG_LEVEL: INFO
+
+segredos:
+  POSTGRES_PASSWORD: {secret: vitrine-banco, chave: clientes-senha}
+  API_KEYS: {secret: vitrine-api, chave: api-keys}
+
+networkPolicy:
+  entradaDeServicos: [pedidos]
+
+ingress:
+  ativo: true
+  caminhos: [/clientes]

@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "servico.nome" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "servico.labels" . | nindent 4 }}
+  annotations:
+    # exceções do Checkov, cada uma com o motivo
+    checkov.io/skip1: CKV_K8S_11=sem limite de CPU de propósito, para evitar throttling; o limite de memória continua
+    checkov.io/skip2: CKV_K8S_15=a tag é o commit e não muda, então IfNotPresent basta
+    checkov.io/skip3: CKV_K8S_43=tag por commit; fixar por digest entra com o GitOps
+    checkov.io/skip4: CKV_K8S_35=a aplicação lê a configuração do ambiente (12-factor); segredo em arquivo é melhoria anotada
+spec:
+  {{- if not .Values.autoscaling.ativo }}
+  replicas: {{ .Values.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "servico.selecao" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # sobe a réplica nova antes de tirar a antiga: nenhum momento com menos capacidade
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "servico.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "servico.nome" . }}
+      # o serviço não fala com a API do Kubernetes: sem token montado no pod
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.terminacao.segundos }}
+      securityContext:
+        {{- include "servico.segurancaPod" . | nindent 8 }}
+      # réplicas em nós diferentes: a queda de um nó não derruba o serviço
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "servico.selecao" . | nindent 14 }}
+      containers:
+        - name: {{ include "servico.nome" . }}
+          image: {{ include "servico.imagem" . }}
+          imagePullPolicy: {{ .Values.imagem.politicaPull }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.porta }}
+          env:
+            {{- include "servico.env" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.recursos | nindent 12 }}
+          securityContext:
+            {{- include "servico.segurancaConteiner" . | nindent 12 }}
+          # startup: dá tempo para subir sem a liveness matar o pod no meio
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          # liveness não olha o banco: banco fora não pode virar reinício em loop
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          # readiness olha o banco: sem banco, o pod sai do Service até voltar
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            failureThreshold: 2
+          lifecycle:
+            preStop:
+              # espera os endpoints do Service saírem de circulação antes do SIGTERM
+              sleep:
+                seconds: 5
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # única pasta gravável: o resto do sistema de arquivos é só leitura
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

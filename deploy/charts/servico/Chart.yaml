@@ -1,0 +1,8 @@
+apiVersion: v2
+name: servico
+description: Um serviço FastAPI da Vitrine (clientes, catalogo ou pedidos), com migrations, probes, HPA, PDB e NetworkPolicy.
+type: application
+version: 0.1.0
+# a versão da aplicação vem da tag da imagem, por serviço
+appVersion: "0.1.0"
+kubeVersion: ">=1.30.0-0"

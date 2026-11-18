@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "servico.nome" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "servico.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "servico.nome" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "servico.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "servico.selecao" . | nindent 4 }}
+  ports:
+    # dentro do cluster cada serviço é http://<nome> (porta 80)
+    - name: http
+      port: 80
+      targetPort: http
