@@ -32,3 +32,12 @@ O que fiz, o que travou e como resolvi.
 - O que travou: o bucket do state recusou o próprio Terraform no emulador. A política exige TLS, e o Moto não preenche `aws:SecureTransport`. Confirmei com boto3 (403 com a política, 404 sem ela) antes de criar a exceção, ligada por padrão no módulo.
 - Susto útil: um endpoint esquecido mandou uma chamada para a AWS de verdade. Todo serviço do emulador agora está listado, e `AWS_ENDPOINT_URL` pega o que faltar.
 - Fase 3 fechada em `v0.3.0`. O apply real fica para a primeira sessão do runbook. Próximo: Fase 4, containers, Kubernetes, CI/CD e GitOps.
+
+## Fase 4 · Containers, Kubernetes, CI/CD e GitOps
+
+- Cluster kind com a versão do EKS, chart Helm único, namespace com Pod Security `restricted`, NetworkPolicies, imagens multi-arquitetura varridas e publicadas pelo pipeline, e o cluster entregue pelo Argo CD a partir do Git.
+- O que travou: o Docker parou com `input/output error`. A VM do Colima tinha remontado o próprio disco como só leitura quando o disco do Mac encheu. Reiniciei, rodei `e2fsck` e remontei.
+- O que travou: o Argo CD deixou tudo em `Progressing` com os pods rodando. O Ingress não tinha endereço no status, e é por ele que o Argo CD decide se está saudável.
+- O que travou: o Checkov aprovou sem analisar nada, porque os manifestos estavam numa pasta que começava com ponto. Percebi porque a linha de resultado sumiu da saída.
+- O smoke passava no Mac e quebrava no CI: o ambiente limpo pegou uma resposta em texto que o ambiente aquecido escondia.
+- Fase 4 fechada em `v0.4.0`. Próximo: Fase 6, observabilidade e SRE.
