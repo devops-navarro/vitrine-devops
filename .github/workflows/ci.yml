@@ -236,3 +236,46 @@ jobs:
 
       - name: Lint, esquema e segurança do chart
         run: make k8s-lint
+
+  # A aplicação inteira num Kubernetes de verdade (kind), com a mesma
+  # configuração do cluster local: NetworkPolicy e Pod Security valendo.
+  k8s-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.3.1
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.7"
+
+      - name: kind 0.33.0 (a mesma versão do ambiente local), conferido por checksum
+        run: |
+          curl -sSLo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-linux-amd64
+          echo "aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d  kind" | sha256sum -c -
+          sudo install kind /usr/local/bin/kind
+
+      - name: .env a partir do exemplo
+        run: cp .env.example .env
+
+      - name: Cluster, banco e serviços
+        run: |
+          make k8s-up
+          make k8s-app
+
+      - name: Smoke test e seed pelo ingress
+        run: |
+          make k8s-smoke
+          make k8s-seed
+          make k8s-seed ARGS=--sem-mudancas
+
+      - name: Diagnóstico em caso de falha
+        if: failure()
+        run: |
+          kubectl --context kind-vitrine get pods -A -o wide
+          kubectl --context kind-vitrine -n vitrine get events --sort-by=.lastTimestamp | tail -40
+          kubectl --context kind-vitrine -n vitrine logs -l app.kubernetes.io/part-of=vitrine --all-containers --tail=50 --prefix
