@@ -4,6 +4,16 @@
 deployment:
   replicas: 1
 
+# Com hostPort, só um pod por nó ocupa a porta 80. O padrão (sobe o novo antes
+# de tirar o antigo) trava: o novo espera uma porta que o antigo nunca libera.
+# Aqui o antigo sai primeiro; a atualização do Traefik local tem segundos sem
+# ingress. No EKS não há hostPort: quem recebe o tráfego é o ALB.
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 0
+
 # no nó que recebe as portas 80 do Mac (deploy/kind/cluster.yaml)
 nodeSelector:
   ingress-ready: "true"
@@ -33,6 +43,14 @@ ingressClass:
 providers:
   kubernetesIngress:
     enabled: true
+    # O status do Ingress precisa de um endereço, senão o Argo CD o considera
+    # "Progressing" para sempre. O Service é ClusterIP (não tem endereço
+    # externo), então publicamos o endereço real de acesso. No EKS, quem
+    # preenche este campo é o AWS Load Balancer Controller, com o ALB.
+    publishedService:
+      enabled: false
+    ingressEndpoint:
+      ip: 127.0.0.1
   kubernetesCRD:
     enabled: false
 
