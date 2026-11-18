@@ -1,0 +1,102 @@
+name: imagens
+
+# PR: constrói e varre (nada é publicado).
+# main: constrói para amd64 e arm64, publica no GHCR com a tag do commit e
+# anexa proveniência e SBOM.
+
+on:
+  pull_request:
+    paths:
+      - services/**
+      - .github/workflows/imagens.yml
+  push:
+    branches: [main]
+    paths:
+      - services/**
+      - .github/workflows/imagens.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: imagens-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  varredura:
+    name: varredura (${{ matrix.servico }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        servico: [clientes, catalogo, pedidos]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build (amd64, só local)
+        uses: docker/build-push-action@v7
+        with:
+          context: services/${{ matrix.servico }}
+          platforms: linux/amd64
+          load: true
+          tags: vitrine-${{ matrix.servico }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.servico }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.servico }}
+
+      - uses: aquasecurity/setup-trivy@v0.3.1
+        with:
+          version: v0.76.2
+
+      - name: Trivy (falha em vulnerabilidade alta ou crítica com correção)
+        run: |
+          trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+            --exit-code 1 vitrine-${{ matrix.servico }}:${{ github.sha }}
+
+  publicacao:
+    name: publicacao (${{ matrix.servico }})
+    needs: varredura
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # escrita no registro só aqui, e só na main
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        servico: [clientes, catalogo, pedidos]
+    steps:
+      - uses: actions/checkout@v4
+
+      # arm64 por emulação: os nós do EKS são Graviton
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e publicação (amd64 e arm64)
+        uses: docker/build-push-action@v7
+        with:
+          context: services/${{ matrix.servico }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # a tag é o commit: "latest" não diz o que está rodando
+          tags: ghcr.io/${{ github.repository_owner }}/vitrine-${{ matrix.servico }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=vitrine-${{ matrix.servico }}
+          # como e de onde a imagem foi construída, e a lista de tudo que há nela
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.servico }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.servico }}
